@@ -179,6 +179,8 @@ export class MainMenu {
         <button id="btn-export" class="btn-menu">📤 Export Save (.json)</button>
         <button id="btn-import" class="btn-menu">📥 Import Save (.json)</button>
         <button id="btn-settings" class="btn-menu">⚙️ Settings</button>
+        <button id="btn-github" class="btn-menu" style="border-color: #38bdf8; color: #7dd3fc;">⭐ GitHub Repository</button>
+        <button id="btn-install-pwa" class="btn-menu" style="border-color: #a855f7; color: #d8b4fe;">📲 Install App (PWA)</button>
       </div>
 
       <!-- Save/Load Modal -->
@@ -289,6 +291,26 @@ export class MainMenu {
     // Settings
     document.getElementById('btn-settings').addEventListener('click', () => {
       document.getElementById('modal-settings').style.display = 'flex';
+    });
+
+    // GitHub Repository Link
+    document.getElementById('btn-github').addEventListener('click', () => {
+      window.open('https://github.com/Crazy-Link67/life-of-a-evermean', '_blank');
+    });
+
+    // Install PWA Button
+    document.getElementById('btn-install-pwa').addEventListener('click', () => {
+      if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        window.deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            document.getElementById('btn-install-pwa').style.display = 'none';
+          }
+          window.deferredPrompt = null;
+        });
+      } else {
+        alert('To install Life of an Evermean as an app:\n\n• On Chrome / Edge (Desktop): Click the install button in the right side of the address bar.\n• On iOS (Safari): Tap the Share icon and choose "Add to Home Screen".\n• On Android (Chrome): Tap the menu (⋮) and select "Install app".');
+      }
     });
 
     document.getElementById('btn-close-settings').addEventListener('click', () => {

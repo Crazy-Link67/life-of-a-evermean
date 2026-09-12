@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Life of an Evermean: Cosmic Ascension</title>
+  
+  <!-- PWA Manifest & Meta -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#ca8a04">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Evermean 3D">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+
   <style>
     * {
       box-sizing: border-box;
@@ -16,6 +27,7 @@
       overflow: hidden;
       background-color: #070b19;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      touch-action: none;
     }
     #app {
       width: 100%;
@@ -27,7 +39,32 @@
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- Service Worker Registration & PWA Prompt Capture -->
+  <script>
+    window.deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPrompt = e;
+      const installBtn = document.getElementById('btn-install-pwa');
+      if (installBtn) {
+        installBtn.style.display = 'flex';
+      }
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => {
+            console.log('Evermean PWA ServiceWorker registered with scope:', reg.scope);
+          })
+          .catch((err) => {
+            console.warn('Evermean PWA ServiceWorker registration failed:', err);
+          });
+      });
+    }
+  </script>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
-

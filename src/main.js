@@ -263,9 +263,25 @@ class Game {
   }
 }
 
-// Start Game on DOM Content Loaded
-window.addEventListener('DOMContentLoaded', () => {
-  const game = new Game();
-  game.start();
-});
+// Robust Game Bootloader (handles both deferred module execution and DOMContentLoaded)
+function bootGame() {
+  console.log('Booting Life of an Evermean...');
+  try {
+    const game = new Game();
+    game.start();
+    console.log('Life of an Evermean successfully started!');
+  } catch (err) {
+    console.error('Failed to start game:', err);
+    const errBox = document.createElement('div');
+    errBox.style.cssText = 'position:fixed;top:20px;left:20px;right:20px;background:#3b0707;color:#fca5a5;padding:20px;border:2px solid #ef4444;border-radius:10px;z-index:999999;font-family:monospace;font-size:14px;white-space:pre-wrap;box-shadow:0 10px 40px rgba(0,0,0,0.9);';
+    errBox.innerHTML = `<strong>⚠️ Game Initialization Error:</strong>\n\n${err.stack || err.message}\n\nPlease check browser console for more details.`;
+    document.body.appendChild(errBox);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootGame);
+} else {
+  bootGame();
+}
 

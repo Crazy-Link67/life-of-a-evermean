@@ -271,7 +271,6 @@ export class CustomizerUI {
 
     document.body.appendChild(this.container);
 
-    this.setup3DPreview();
     this.setupEvents();
   }
 
@@ -430,6 +429,16 @@ export class CustomizerUI {
   show() {
     if (this.container) {
       this.container.style.display = 'block';
+      if (!this.previewRenderer) {
+        this.setup3DPreview();
+      } else {
+        const previewBox = document.getElementById('preview-canvas-container');
+        const width = previewBox.clientWidth || 500;
+        const height = previewBox.clientHeight || 500;
+        this.previewCamera.aspect = width / height;
+        this.previewCamera.updateProjectionMatrix();
+        this.previewRenderer.setSize(width, height);
+      }
       this.selectPreset('oak');
     }
   }
@@ -437,6 +446,10 @@ export class CustomizerUI {
   hide() {
     if (this.container) {
       this.container.style.display = 'none';
+      if (this.animId) {
+        cancelAnimationFrame(this.animId);
+        this.animId = null;
+      }
     }
   }
 }

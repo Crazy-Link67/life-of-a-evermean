@@ -100,3 +100,4 @@
   <!-- Glowing Cosmic Core Gem / Stardust Spark -->
   <polygon points="256,60 264,80 284,88 264,96 256,116 248,96 228,88 248,80" fill="#fef08a" filter="url(#glow)"/>
 </svg>
+

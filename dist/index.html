@@ -36,7 +36,34 @@
       inset: 0;
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-u7NlKUea.js"></script>
+
+  <!-- Global Error Handler -->
+  <script>
+    window.addEventListener('error', function (e) {
+      console.error('Captured Error:', e);
+      var box = document.getElementById('debug-error-box');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'debug-error-box';
+        box.style.cssText = 'position:fixed;top:10px;left:10px;right:10px;background:#380b0b;color:#fca5a5;padding:16px;border:2px solid #ef4444;border-radius:8px;z-index:999999;font-family:monospace;font-size:13px;white-space:pre-wrap;box-shadow:0 8px 30px rgba(0,0,0,0.9);';
+        document.body.appendChild(box);
+      }
+      box.textContent = '⚠️ Runtime Error: ' + e.message + '\nFile: ' + e.filename + ':' + e.lineno + '\n' + (e.error ? (e.error.stack || '') : '');
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      console.error('Unhandled Promise:', e);
+      var box = document.getElementById('debug-error-box');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'debug-error-box';
+        box.style.cssText = 'position:fixed;top:10px;left:10px;right:10px;background:#380b0b;color:#fca5a5;padding:16px;border:2px solid #ef4444;border-radius:8px;z-index:999999;font-family:monospace;font-size:13px;white-space:pre-wrap;box-shadow:0 8px 30px rgba(0,0,0,0.9);';
+        document.body.appendChild(box);
+      }
+      box.textContent = '⚠️ Unhandled Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'Unknown') + '\n' + (e.reason && e.reason.stack ? e.reason.stack : '');
+    });
+  </script>
+  <script type="module" crossorigin src="./assets/index-CfoYVVnJ.js"></script>
 </head>
 <body>
   <div id="app"></div>

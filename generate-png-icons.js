@@ -127,3 +127,4 @@ function generateEvermeanPNG(size, outputPath) {
 
 generateEvermeanPNG(192, 'public/icon-192.png');
 generateEvermeanPNG(512, 'public/icon-512.png');
+

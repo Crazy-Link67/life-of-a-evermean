@@ -1,12 +1,12 @@
-// Life of an Evermean - Progressive Web App Service Worker
-const CACHE_NAME = 'evermean-pwa-v1';
+const CACHE_NAME = 'evermean-pwa-v2';
+const BASE = self.location.pathname.replace(/\/[^\/]*$/, '/');
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.svg',
-  '/icon-192.png',
-  '/icon-512.png'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.json',
+  BASE + 'icon.svg',
+  BASE + 'icon-192.png',
+  BASE + 'icon-512.png'
 ];
 
 // Install Event: Pre-cache shell assets

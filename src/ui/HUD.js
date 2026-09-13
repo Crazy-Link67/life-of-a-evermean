@@ -166,6 +166,16 @@ export class HUD {
           border-radius: 50%;
         }
 
+        /* First-Person Evermean Sight Knot-Hole Vignette */
+        #evermean-sight-vignette {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(45, 26, 12, 0.28) 85%, rgba(20, 10, 4, 0.65) 100%);
+          box-shadow: inset 0 0 80px rgba(168, 85, 247, 0.08);
+          transition: box-shadow 0.3s ease, opacity 0.3s ease;
+        }
+
         /* Status Badges */
         .status-badge-container {
           position: absolute;
@@ -300,8 +310,9 @@ export class HUD {
       <!-- Toast Banner -->
       <div id="hud-toast" class="toast-banner">Notification</div>
 
-      <!-- Crosshair -->
+      <!-- Crosshair & Evermean Knot-Hole Sight Vignette -->
       <div class="crosshair"></div>
+      <div id="evermean-sight-vignette"></div>
 
       <!-- Badges -->
       <div class="status-badge-container">
@@ -405,6 +416,20 @@ export class HUD {
 
     const qKorok = document.getElementById('q-korok');
     if ((player.inventory.korokSeeds || 0) >= 1) qKorok.classList.add('done');
+
+    // 6. First-Person Evermean Knot-Hole Sight Vignette
+    const vignette = document.getElementById('evermean-sight-vignette');
+    if (vignette) {
+      vignette.style.display = (player.cameraMode === 'first_person') ? 'block' : 'none';
+      if (player.isDisguised) {
+        vignette.style.boxShadow = 'inset 0 0 110px rgba(34, 197, 94, 0.3)';
+      } else if (player.barkHp < 30) {
+        vignette.style.boxShadow = 'inset 0 0 110px rgba(239, 68, 68, 0.35)';
+      } else {
+        const glowHex = player.speciesConfig?.glowColor ? `#${player.speciesConfig.glowColor.toString(16).padStart(6, '0')}` : 'rgba(168, 85, 247, 0.1)';
+        vignette.style.boxShadow = `inset 0 0 85px ${glowHex}`;
+      }
+    }
   }
 }
 

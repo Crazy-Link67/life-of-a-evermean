@@ -42,6 +42,7 @@ export class PlayerEvermean {
     this.isAttacking = false;
     this.attackTimer = 0;
     this.headSlamTilt = 0;
+    this.rightArmRecoil = 0;
 
     // 3D Models
     this.thirdPersonModel = null;
@@ -93,8 +94,8 @@ export class PlayerEvermean {
     this.thirdPersonModel.position.copy(this.position);
     this.scene.add(this.thirdPersonModel);
 
-    // 2. First Person View Model (Arms & branches in front of camera)
-    this.firstPersonModel = TreeModelGenerator.createFirstPersonViewModel(this.speciesConfig);
+    // 2. First Person View Model (Evermean knot-hole sight rig in front of camera)
+    this.firstPersonModel = TreeModelGenerator.createFirstPersonViewModel(this.speciesConfig, this.growthStage);
     this.camera.add(this.firstPersonModel);
 
     this.updateModelVisibility();
@@ -113,6 +114,9 @@ export class PlayerEvermean {
   toggleCameraMode() {
     this.cameraMode = (this.cameraMode === 'first_person') ? 'third_person' : 'first_person';
     this.updateModelVisibility();
+    if (window.showGameNotification) {
+      window.showGameNotification(this.cameraMode === 'first_person' ? '👁️ Evermean First-Person Knot-Hole Sight' : '🌲 Third-Person Grove View');
+    }
   }
 
   // Head-Slam Attack: The classic TOTK tree monster slam!
@@ -261,6 +265,7 @@ export class PlayerEvermean {
   launchProjectile(villagers) {
     if (this.inventory.acorns <= 0) return;
     this.inventory.acorns--;
+    this.rightArmRecoil = 0.35;
 
     audio.playRootStep(1.6);
     const forwardDir = new THREE.Vector3(
@@ -487,7 +492,7 @@ export class PlayerEvermean {
       this.velocity.y -= 18.0 * delta;
       this.position.y += this.velocity.y * delta;
 
-      const treeEyeHeight = 0.8 + (this.growthStage - 1) * 0.45;
+      const treeEyeHeight = 1.1 + (this.growthStage - 1) * 0.55;
       if (this.position.y <= groundHeight + treeEyeHeight) {
         this.position.y = groundHeight + treeEyeHeight;
         this.velocity.y = 0;
@@ -544,7 +549,7 @@ export class PlayerEvermean {
     // 7. Update 3D Model Positions and Camera
     if (this.thirdPersonModel) {
       this.thirdPersonModel.position.copy(this.position);
-      this.thirdPersonModel.position.y -= (0.8 + (this.growthStage - 1) * 0.45); // Align feet with ground
+      this.thirdPersonModel.position.y -= (1.1 + (this.growthStage - 1) * 0.55); // Align feet with ground
       this.thirdPersonModel.rotation.y = this.yaw;
 
       // Animate root legs if moving
@@ -561,29 +566,70 @@ export class PlayerEvermean {
       }
     }
 
-    // Camera Placement
+    // Camera Placement & First/Third Person View Handling
     if (this.cameraMode === 'first_person') {
+      // Accurate First-Person Evermean knot-hole sight line
       this.camera.position.copy(this.position);
       this.camera.rotation.order = 'YXZ';
       this.camera.rotation.y = this.yaw;
       this.camera.rotation.x = this.pitch - this.headSlamTilt * 0.7; // Screen dips with head slam!
 
-      // Animate first-person view arms (sway with movement & attack)
+      // Animate First-Person View Rig (arms, canopy, and roots)
       if (this.firstPersonModel) {
+        const isMoving = input.isKeyDown('KeyW') || input.isKeyDown('KeyS') || input.isKeyDown('KeyA') || input.isKeyDown('KeyD');
+        const isSprinting = input.isKeyDown('ShiftLeft') && this.photosynthesis > 5;
+        const time = Date.now() * 0.006;
+        const walkBobY = isMoving ? Math.sin(time * 2.2) * (isSprinting ? 0.035 : 0.018) : Math.sin(time * 0.8) * 0.006;
+        const walkBobX = isMoving ? Math.cos(time * 1.1) * (isSprinting ? 0.025 : 0.012) : 0;
+
+        // Recoil recovery
+        this.rightArmRecoil = THREE.MathUtils.lerp(this.rightArmRecoil, 0, delta * 7);
+
         const arms = this.firstPersonModel.userData;
-        const bob = Math.sin(Date.now() * 0.01) * 0.02;
-        if (arms.leftArm) arms.leftArm.position.y = -0.4 + bob - this.headSlamTilt * 0.3;
-        if (arms.rightArm) arms.rightArm.position.y = -0.4 + bob - this.headSlamTilt * 0.3;
+
+        // Head slam animation: arms pull back, swing forward & down, then recover
+        const slamOffsetZ = this.isAttacking ? (this.attackTimer > 0.35 ? -0.15 : 0.22) : 0;
+        const slamOffsetY = this.isAttacking ? (this.attackTimer > 0.35 ? 0.08 : -0.2) : 0;
+        const slamRotX = this.headSlamTilt * 0.8;
+
+        if (arms.leftArm) {
+          arms.leftArm.position.x = -0.44 + walkBobX * 0.5;
+          arms.leftArm.position.y = -0.38 + walkBobY + slamOffsetY;
+          arms.leftArm.position.z = -0.62 + slamOffsetZ;
+          arms.leftArm.rotation.x = 0.18 + slamRotX;
+        }
+
+        if (arms.rightArm) {
+          arms.rightArm.position.x = 0.44 + walkBobX * 0.5;
+          arms.rightArm.position.y = -0.38 + walkBobY + slamOffsetY;
+          arms.rightArm.position.z = -0.62 + slamOffsetZ + this.rightArmRecoil;
+          arms.rightArm.rotation.x = 0.18 + slamRotX - this.rightArmRecoil * 1.2;
+        }
+
+        // Canopy boughs sway gently overhead with wind & motion
+        if (arms.canopyGroup) {
+          const canopySway = Math.sin(time * 0.9) * 0.012;
+          arms.canopyGroup.position.y = canopySway - this.headSlamTilt * 0.12;
+          arms.canopyGroup.rotation.z = walkBobX * 0.2;
+        }
+
+        // Lower body & roots stride when looking down
+        if (arms.roots && isMoving) {
+          arms.roots.forEach((root, rIdx) => {
+            root.rotation.x = Math.sin(time * 2.2 + rIdx * Math.PI) * (isSprinting ? 0.55 : 0.32);
+          });
+        }
       }
-      // Third-person camera behind tree (with anti-clipping terrain query)
+    } else {
+      // Third-person camera behind tree (with anti-clipping terrain height query)
       const dist = 4.5 + (this.growthStage - 1) * 1.2;
       const camX = this.position.x - Math.sin(this.yaw) * dist;
       const camZ = this.position.z - Math.cos(this.yaw) * dist;
       const camGround = this.terrain.getHeight(camX, camZ);
-      const camY = Math.max(camGround + 1.4, this.position.y + 2.0);
+      const camY = Math.max(camGround + 1.4, this.position.y + 1.2);
 
       this.camera.position.set(camX, camY, camZ);
-      this.camera.lookAt(this.position.x, this.position.y + 0.8, this.position.z);
+      this.camera.lookAt(this.position.x, this.position.y + 0.5, this.position.z);
     }
   }
 }

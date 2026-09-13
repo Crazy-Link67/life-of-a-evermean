@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TextureGenerator } from '../core/TextureGenerator.js';
 
 // Procedural 3D Evermean Generator: creates authentic TOTK-styled living tree models
 // with tree bark, gnarled limbs, pointy root legs, and customizable elemental/animal adaptations.
@@ -429,15 +430,24 @@ export class TreeModelGenerator {
     return rootGroup;
   }
 
-  // Create First-Person View Model (Wooden branch arms and foliage framing view)
-  static createFirstPersonViewModel(config = {}) {
+  // Create Authentic Zelda TOTK Evermean First-Person View Rig
+  // Includes gnarled bark-textured limbs, twig claws, natural upper canopy bough framing,
+  // and visible root claws when looking down towards the soil.
+  static createFirstPersonViewModel(config = {}, stage = 1) {
     const fpGroup = new THREE.Group();
     fpGroup.name = 'FirstPersonViewModel';
 
+    // Bark PBR material matching the player's tree species
     const barkColorHex = new THREE.Color(config.barkColor || '#5c4033');
+    const barkTex = TextureGenerator.createBarkTexture(barkColorHex.getHex(), config.barkRoughness !== undefined ? config.barkRoughness : 0.88);
+    const barkNormal = TextureGenerator.createBarkNormalMap();
+
     const barkMat = new THREE.MeshStandardMaterial({
-      color: barkColorHex,
-      roughness: 0.85
+      map: barkTex,
+      normalMap: barkNormal,
+      normalScale: new THREE.Vector2(0.7, 0.7),
+      roughness: config.barkRoughness !== undefined ? config.barkRoughness : 0.88,
+      metalness: 0.08
     });
 
     const leafColorHex = new THREE.Color(config.foliageColor || '#2e8540');
@@ -447,60 +457,180 @@ export class TreeModelGenerator {
       flatShading: true
     });
 
-    const isMantis = config.hasMantisScythes || config.presetKey === 'mantis';
+    // Glowing elemental veins
+    let glowMat = null;
+    if (config.glowColor || config.element === 'cosmic' || config.element === 'fire' || config.element === 'lightning') {
+      const glowHex = config.glowColor || 0xa855f7;
+      glowMat = new THREE.MeshBasicMaterial({
+        color: glowHex,
+        wireframe: config.element === 'lightning'
+      });
+    }
 
-    // Left and Right wooden branch arms
+    const isMantis = config.hasMantisScythes || config.presetKey === 'mantis' || config.crestType === 'mantis_crest';
+
+    // 1. Gnarled Branch Arms & Claws reaching into the view
     const leftArm = new THREE.Group();
-    leftArm.position.set(-0.45, -0.4, -0.65);
-    leftArm.rotation.set(0.2, 0.4, -0.3);
+    leftArm.position.set(-0.44, -0.38, -0.62);
+    leftArm.rotation.set(0.18, 0.35, -0.25);
 
     const rightArm = new THREE.Group();
-    rightArm.position.set(0.45, -0.4, -0.65);
-    rightArm.rotation.set(0.2, -0.4, 0.3);
+    rightArm.position.set(0.44, -0.38, -0.62);
+    rightArm.rotation.set(0.18, -0.35, 0.25);
 
     [leftArm, rightArm].forEach((arm, idx) => {
       const side = idx === 0 ? -1 : 1;
 
       if (isMantis) {
-        // Wooden raptorial scythe limb
-        const branchGeom = new THREE.CylinderGeometry(0.045, 0.07, 0.6, 6);
-        branchGeom.rotateX(Math.PI / 4);
+        // Mantis wooden scythe arm
+        const branchGeom = new THREE.CylinderGeometry(0.045, 0.075, 0.65, 7);
+        branchGeom.rotateX(Math.PI / 3.8);
         const branch = new THREE.Mesh(branchGeom, barkMat);
         arm.add(branch);
 
-        const scytheBladeGeom = new THREE.ConeGeometry(0.06, 0.75, 5);
-        scytheBladeGeom.rotateX(-Math.PI / 2.5);
-        scytheBladeGeom.translate(0, -0.15, 0.35);
-        const blade = new THREE.Mesh(scytheBladeGeom, barkMat);
+        const scytheBladeGeom = new THREE.ConeGeometry(0.065, 0.85, 5);
+        scytheBladeGeom.rotateX(-Math.PI / 2.3);
+        scytheBladeGeom.translate(0, -0.15, 0.4);
+        const bladeMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(config.barkColor || '#4a5320').offsetHSL(0, 0.1, -0.05),
+          roughness: 0.55
+        });
+        const blade = new THREE.Mesh(scytheBladeGeom, bladeMat);
         arm.add(blade);
       } else {
-        // Gnarled tree branch arm with wooden twigs and leaf cluster
-        const branchGeom = new THREE.CylinderGeometry(0.05, 0.08, 0.7, 6);
-        branchGeom.rotateX(Math.PI / 3);
-        const branch = new THREE.Mesh(branchGeom, barkMat);
-        arm.add(branch);
+        // Gnarled Evermean branch arm: Upper bough
+        const upperBoughGeom = new THREE.CylinderGeometry(0.055, 0.08, 0.45, 6);
+        upperBoughGeom.rotateX(Math.PI / 3.2);
+        upperBoughGeom.rotateZ(side * 0.15);
+        const upperBough = new THREE.Mesh(upperBoughGeom, barkMat);
+        arm.add(upperBough);
 
-        // Pointy wooden fingers/twigs
-        [-0.04, 0, 0.04].forEach((xOff, fIdx) => {
-          const twigGeom = new THREE.ConeGeometry(0.02, 0.25, 4);
-          twigGeom.rotateX(Math.PI / 2.5 + (fIdx - 1) * 0.1);
-          twigGeom.translate(xOff, 0.1, 0.35);
+        // Forearm limb angling forward
+        const forearmGeom = new THREE.CylinderGeometry(0.04, 0.058, 0.48, 6);
+        forearmGeom.rotateX(Math.PI / 2.6);
+        forearmGeom.translate(side * 0.04, 0.08, 0.28);
+        const forearm = new THREE.Mesh(forearmGeom, barkMat);
+        arm.add(forearm);
+
+        // Pointed wooden twig claw fingers (3 main fingers + thumb claw)
+        const fingerOffsets = [
+          { x: -0.045, angleY: -0.2, length: 0.22 },
+          { x: 0.0, angleY: 0.0, length: 0.26 },
+          { x: 0.045, angleY: 0.2, length: 0.22 },
+          { x: -side * 0.065, angleY: -side * 0.35, length: 0.18 } // Thumb twig
+        ];
+
+        fingerOffsets.forEach((f) => {
+          const twigGeom = new THREE.ConeGeometry(0.018, f.length, 5);
+          twigGeom.rotateX(Math.PI / 2.2);
+          twigGeom.rotateY(f.angleY);
+          twigGeom.translate(side * 0.04 + f.x, 0.16, 0.48);
           const twig = new THREE.Mesh(twigGeom, barkMat);
           arm.add(twig);
         });
 
-        // Small leaf sprig
-        const sprigGeom = new THREE.DodecahedronGeometry(0.12, 0);
-        const sprig = new THREE.Mesh(sprigGeom, leafMat);
-        sprig.position.set(side * 0.05, 0.08, 0.2);
-        arm.add(sprig);
+        // Glowing elemental ring around wrist
+        if (glowMat) {
+          const wristVeinGeom = new THREE.TorusGeometry(0.055, 0.012, 6, 12);
+          const vein = new THREE.Mesh(wristVeinGeom, glowMat);
+          vein.position.set(side * 0.04, 0.14, 0.4);
+          arm.add(vein);
+        }
+
+        // Fresh green leaf sprouts on elbow & wrist
+        const sproutGeom = new THREE.DodecahedronGeometry(0.09, 0);
+        const sprout = new THREE.Mesh(sproutGeom, leafMat);
+        sprout.position.set(side * 0.09, 0.04, 0.15);
+        arm.add(sprout);
       }
 
       fpGroup.add(arm);
     });
 
+    // 2. Overhead Canopy Bough Framing: Looking out from inside the tree's living crown
+    const canopyGroup = new THREE.Group();
+    canopyGroup.name = 'FirstPersonCanopy';
+
+    [-1, 1].forEach((side) => {
+      const boughGroup = new THREE.Group();
+      boughGroup.position.set(side * 0.52, 0.38, -0.48);
+
+      // Arching wooden bough across top corner
+      const boughGeom = new THREE.CylinderGeometry(0.03, 0.06, 0.45, 5);
+      boughGeom.rotateZ(side * -Math.PI / 3.5);
+      boughGeom.rotateX(0.2);
+      const bough = new THREE.Mesh(boughGeom, barkMat);
+      boughGroup.add(bough);
+
+      // Lush canopy foliage puffs framing the upper periphery
+      if (config.foliageType === 'cosmic_nebula' || config.element === 'cosmic') {
+        for (let p = 0; p < 3; p++) {
+          const starGeom = new THREE.DodecahedronGeometry(0.16 + p * 0.04, 1);
+          const starMat = new THREE.MeshStandardMaterial({
+            color: p % 2 === 0 ? 0xc084fc : 0x38bdf8,
+            emissive: p % 2 === 0 ? 0x9333ea : 0x0284c7,
+            emissiveIntensity: 0.6,
+            roughness: 0.3,
+            transparent: true,
+            opacity: 0.85
+          });
+          const puff = new THREE.Mesh(starGeom, starMat);
+          puff.position.set(side * (0.05 + p * 0.06), 0.04 - p * 0.03, p * 0.05);
+          boughGroup.add(puff);
+        }
+      } else {
+        for (let p = 0; p < 3; p++) {
+          let leafPuffGeom;
+          if (config.foliageType === 'icicle_needles' || config.foliageType === 'spiky') {
+            leafPuffGeom = new THREE.ConeGeometry(0.12, 0.32, 4);
+            leafPuffGeom.rotateX(0.3);
+          } else {
+            leafPuffGeom = new THREE.DodecahedronGeometry(0.16 + p * 0.04, 1);
+          }
+          const puff = new THREE.Mesh(leafPuffGeom, leafMat);
+          puff.position.set(side * (0.05 + p * 0.06), 0.04 - p * 0.03, p * 0.05);
+          boughGroup.add(puff);
+        }
+      }
+
+      canopyGroup.add(boughGroup);
+    });
+    fpGroup.add(canopyGroup);
+
+    // 3. Lower Trunk & Root Leg Knuckles (Visible when pitching camera down towards feet)
+    const lowerBody = new THREE.Group();
+    lowerBody.name = 'FirstPersonLowerBody';
+    lowerBody.position.set(0, -0.75, 0.12);
+
+    // Lower trunk bark cylinder
+    const trunkCylGeom = new THREE.CylinderGeometry(0.24, 0.35, 0.8, 8);
+    const trunkCyl = new THREE.Mesh(trunkCylGeom, barkMat);
+    trunkCyl.position.y = -0.15;
+    lowerBody.add(trunkCyl);
+
+    // Visible root leg claws
+    const rootLegs = [];
+    [-1, 1].forEach((side) => {
+      const rootPivot = new THREE.Group();
+      rootPivot.position.set(side * 0.22, -0.4, 0.05);
+
+      const rootGeom = new THREE.ConeGeometry(0.08, 0.6, 5);
+      rootGeom.rotateX(Math.PI / 4);
+      rootGeom.rotateZ(side * -Math.PI / 8);
+      rootGeom.translate(0, -0.18, 0.22);
+      const rootMesh = new THREE.Mesh(rootGeom, barkMat);
+      rootPivot.add(rootMesh);
+
+      lowerBody.add(rootPivot);
+      rootLegs.push(rootPivot);
+    });
+    fpGroup.add(lowerBody);
+
     fpGroup.userData.leftArm = leftArm;
     fpGroup.userData.rightArm = rightArm;
+    fpGroup.userData.canopyGroup = canopyGroup;
+    fpGroup.userData.lowerBody = lowerBody;
+    fpGroup.userData.roots = rootLegs;
 
     return fpGroup;
   }

@@ -30,8 +30,8 @@ export class Environment {
     // 3. Build River Beaverfolk Stilt Village
     this.buildBeaverVillage();
 
-    // 4. Scatter Survival Foragables (Dew drops, Compost, Acorns)
-    this.spawnForagables(80);
+    // 4. Scatter Survival Foragables (Rare Dew drops, Compost, Acorns)
+    this.spawnForagables(18);
 
     // 5. Scatter 3D Instanced Wind-blown Grass Tufts & Wildflowers
     this.spawnInstancedFoliage(650);
@@ -43,7 +43,7 @@ export class Environment {
     this.spawnAncientRuins();
 
     // 8. Glowing Bioluminescent Mushroom Groves
-    this.spawnGlowingMushrooms(50);
+    this.spawnGlowingMushrooms(22);
 
     // 9. Mossy Granite Boulders & Fallen Logs
     this.spawnRockFormations(50);

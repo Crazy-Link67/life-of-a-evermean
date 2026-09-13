@@ -24,6 +24,7 @@ export class Engine {
     const fov = settings.fov || 75;
     this.camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 1000);
     this.camera.position.set(0, 2, 5);
+    this.scene.add(this.camera);
 
     // 3. Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });

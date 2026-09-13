@@ -11,6 +11,7 @@ export class DayNightCycle {
     this.starfield = null;
     this.shootingStars = [];
     this.fallenStardustItems = [];
+    this.meteorFellTonight = false;
     this.onNewDayCallback = null;
   }
 
@@ -161,29 +162,37 @@ export class DayNightCycle {
       this.starfield.rotation.y += delta * 0.01;
     }
 
-    // Trigger Night Meteor / Cosmic Star Showers
-    if (!this.isDay() && Math.random() < delta * 0.4) {
+    // Reset meteor trigger when day arrives
+    if (this.isDay()) {
+      this.meteorFellTonight = false;
+    }
+
+    // Rare Night Meteor / Celestial Event: At most 1 per night, and only if no star fragment is on ground
+    if (!this.isDay() && !this.meteorFellTonight && this.fallenStardustItems.length === 0 && Math.random() < delta * 0.005) {
+      this.meteorFellTonight = true;
       this.spawnMeteor(playerPos);
     }
   }
 
-  // Shoot a falling star down towards the ground
+  // Shoot a rare falling star down towards the ground
   spawnMeteor(playerPos) {
-    const meteorGeom = new THREE.SphereGeometry(0.5, 8, 8);
+    if (this.fallenStardustItems.length > 0) return;
+
+    const meteorGeom = new THREE.SphereGeometry(0.45, 8, 8);
     const meteorMat = new THREE.MeshBasicMaterial({ color: 0xec4899 });
     const meteor = new THREE.Mesh(meteorGeom, meteorMat);
 
-    const startX = playerPos.x + (Math.random() - 0.5) * 80;
-    const startZ = playerPos.z + (Math.random() - 0.5) * 80;
+    const startX = playerPos.x + (Math.random() - 0.5) * 60;
+    const startZ = playerPos.z + (Math.random() - 0.5) * 60;
     const targetY = 1.0;
 
     meteor.position.set(startX, 60, startZ);
     this.scene.add(meteor);
 
     const velocity = new THREE.Vector3(
-      (Math.random() - 0.5) * 15,
-      -35,
-      (Math.random() - 0.5) * 15
+      (Math.random() - 0.5) * 10,
+      -30,
+      (Math.random() - 0.5) * 10
     );
 
     const checkImpact = setInterval(() => {
@@ -198,8 +207,13 @@ export class DayNightCycle {
     }, 50);
   }
 
-  // A glowing collectible star fragment on the ground
+  // A glowing collectible star fragment on the ground (capped to 1 active)
   createStardustPickup(position) {
+    while (this.fallenStardustItems.length >= 1) {
+      const old = this.fallenStardustItems.pop();
+      if (old) this.scene.remove(old);
+    }
+
     const starGeom = new THREE.OctahedronGeometry(0.35);
     const starMat = new THREE.MeshStandardMaterial({
       color: 0xd946ef,

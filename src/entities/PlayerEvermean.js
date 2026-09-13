@@ -575,12 +575,12 @@ export class PlayerEvermean {
         if (arms.leftArm) arms.leftArm.position.y = -0.4 + bob - this.headSlamTilt * 0.3;
         if (arms.rightArm) arms.rightArm.position.y = -0.4 + bob - this.headSlamTilt * 0.3;
       }
-    } else {
-      // Third-person camera behind tree
+      // Third-person camera behind tree (with anti-clipping terrain query)
       const dist = 4.5 + (this.growthStage - 1) * 1.2;
       const camX = this.position.x - Math.sin(this.yaw) * dist;
       const camZ = this.position.z - Math.cos(this.yaw) * dist;
-      const camY = Math.max(groundHeight + 1.0, this.position.y + 2.2);
+      const camGround = this.terrain.getHeight(camX, camZ);
+      const camY = Math.max(camGround + 1.4, this.position.y + 2.0);
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(this.position.x, this.position.y + 0.8, this.position.z);

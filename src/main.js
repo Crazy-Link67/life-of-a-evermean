@@ -244,7 +244,7 @@ class Game {
       villagers.update(delta, player, engine, audio, colony);
 
       // 4. Civilization Colony
-      colony.update(delta, player, now * 0.001);
+      colony.update(delta, player, now * 0.001, villagers, engine, audio);
 
       // 5. Engine Effects & HUD
       engine.update(delta);

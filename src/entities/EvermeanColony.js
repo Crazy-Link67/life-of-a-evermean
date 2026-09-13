@@ -276,8 +276,8 @@ export class EvermeanColony {
     this.citizenEvermeans.push(babyModel);
   }
 
-  update(delta, playerEvermean, time) {
-    // 1. Update Structures (Sap Basins heal player, Incubators spawn sprouts)
+  update(delta, playerEvermean, time, villagers, engine, audio) {
+    // 1. Update Structures (Sap Basins heal player, Incubators spawn sprouts, Turrets fire)
     this.structures.forEach(st => {
       const u = st.userData;
 
@@ -291,6 +291,28 @@ export class EvermeanColony {
         if (u.spawnTimer <= 0 && this.citizenEvermeans.length < 5) {
           u.spawnTimer = 45; // Spawn baby every 45s
           this.spawnCitizenEvermean(st.position.x + 2, st.position.z + 2, playerEvermean.speciesConfig);
+        }
+      } else if (u.typeId === 'sporeTurret') {
+        // Living Spore Turret: Targets nearby woodcutter goblins and shoots thorn volleys
+        if (u.turretCooldown > 0) u.turretCooldown -= delta;
+        if (villagers && villagers.goblins && u.turretCooldown <= 0) {
+          for (let g of villagers.goblins) {
+            const dist = g.position.distanceTo(st.position);
+            if (dist < 18.0) {
+              u.turretCooldown = 2.2;
+              if (u.turretHead) {
+                u.turretHead.lookAt(g.position.x, g.position.y + 1.2, g.position.z);
+              }
+              if (engine) {
+                engine.spawnParticles(st.position.clone().add(new THREE.Vector3(0, 2.4, 0)), 10, 0x15803d, 3, 0.08);
+              }
+              if (audio) {
+                audio.playHeadSlam?.(0.3);
+              }
+              villagers.damageGoblin(g, 22, engine, audio);
+              break;
+            }
+          }
         }
       } else if (u.typeId === 'spiritHollow') {
         // Korok wisp bobbing & passive biomass growth

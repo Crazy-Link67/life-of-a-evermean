@@ -451,8 +451,11 @@ export class CreatureVillagers {
 
       // Check if raiding grove structures
       let raidTarget = null;
-      if (colony && colony.structures.length > 0 && Math.random() < 0.05 && u.state === 'patrol') {
-        raidTarget = colony.structures[0].group.position;
+      if (colony && colony.structures && colony.structures.length > 0 && Math.random() < 0.05 && u.state === 'patrol') {
+        const targetStruct = colony.structures[Math.floor(Math.random() * colony.structures.length)];
+        if (targetStruct && targetStruct.position) {
+          raidTarget = targetStruct.position;
+        }
       }
 
       if (!isPlayerDisguised && distToPlayer < 20) {

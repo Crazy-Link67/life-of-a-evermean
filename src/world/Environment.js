@@ -8,6 +8,10 @@ export class Environment {
     this.breakables = [];
     this.pickups = [];
     this.puzzles = [];
+    this.mushrooms = [];
+    this.fireflies = null;
+    this.fireflyPositions = [];
+    this.campfireLight = null;
     this.grassMesh = null;
     this.goblinCampCenter = new THREE.Vector3(65, 0, -40);
     this.beaverVillageCenter = new THREE.Vector3(-28, 0, 25);
@@ -34,6 +38,25 @@ export class Environment {
 
     // 6. Spawn Interactive Zelda-style Korok Puzzles
     this.spawnKorokPuzzles();
+
+    // 7. Ancient Stone Ruins & Monoliths
+    this.spawnAncientRuins();
+
+    // 8. Glowing Bioluminescent Mushroom Groves
+    this.spawnGlowingMushrooms(50);
+
+    // 9. Mossy Granite Boulders & Fallen Logs
+    this.spawnRockFormations(50);
+    this.spawnFallenLogs(25);
+
+    // 10. Water Lily Pads & Shoreline Reeds
+    this.spawnWaterFlora();
+
+    // 11. Goblin Encampment Campfire
+    this.spawnCampfire();
+
+    // 12. Floating Forest Fireflies
+    this.spawnFireflies(120);
   }
 
   // Ordinary forest trees that the player blends into
@@ -473,22 +496,293 @@ export class Environment {
     }
   }
 
+  // Ancient Stone Ruins & Monoliths (Zelda-style weathered stonework)
+  spawnAncientRuins() {
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.95 });
+    const mossStoneMat = new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.9 });
+    const runeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.6 });
+
+    // 1. Ancient Stone Archway at x: 20, z: -15
+    const archGroup = new THREE.Group();
+    const archY = this.terrain.getHeight(20, -15);
+    archGroup.position.set(20, archY, -15);
+
+    // Left & Right Pillars
+    [-2.2, 2.2].forEach(px => {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 4.8, 8), stoneMat);
+      pillar.position.set(px, 2.4, 0);
+      pillar.castShadow = true;
+      pillar.receiveShadow = true;
+      archGroup.add(pillar);
+    });
+
+    // Lintel Top Arch Stone
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.7, 1.2), mossStoneMat);
+    lintel.position.set(0, 5.0, 0);
+    lintel.castShadow = true;
+    archGroup.add(lintel);
+
+    // Glowing Rune Core in Center
+    const runeCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), runeMat);
+    runeCore.position.set(0, 3.2, 0);
+    archGroup.add(runeCore);
+    this.scene.add(archGroup);
+
+    // 2. Ruined Broken Monoliths in the Northern Meadow (x: -40, z: -70)
+    for (let m = 0; m < 5; m++) {
+      const mx = -40 + (Math.random() - 0.5) * 25;
+      const mz = -70 + (Math.random() - 0.5) * 25;
+      const my = this.terrain.getHeight(mx, mz);
+      const mono = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.4, 0.55, 2.2 + Math.random() * 2.5, 6),
+        stoneMat
+      );
+      mono.position.set(mx, my + 1.1, mz);
+      mono.rotation.z = (Math.random() - 0.5) * 0.35; // Tilting ruined column
+      mono.rotation.y = Math.random() * Math.PI;
+      mono.castShadow = true;
+      this.scene.add(mono);
+    }
+  }
+
+  // Glowing Bioluminescent Mushroom Groves
+  spawnGlowingMushrooms(count = 50) {
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+    const colors = [
+      { col: 0x06b6d4, emissive: 0x0891b2 }, // Cyan
+      { col: 0xa855f7, emissive: 0x7e22ce }, // Purple
+      { col: 0x10b981, emissive: 0x059669 }  // Emerald
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 40);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 40);
+      if (this.terrain.isWater(x, z)) continue;
+
+      const y = this.terrain.getHeight(x, z);
+      const mGroup = new THREE.Group();
+      mGroup.position.set(x, y, z);
+
+      const pal = colors[i % colors.length];
+      const capMat = new THREE.MeshStandardMaterial({
+        color: pal.col,
+        emissive: pal.emissive,
+        emissiveIntensity: 0.7,
+        roughness: 0.4
+      });
+
+      const stemHeight = 0.4 + Math.random() * 0.5;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, stemHeight, 6), stemMat);
+      stem.position.y = stemHeight * 0.5;
+      mGroup.add(stem);
+
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3 + Math.random() * 0.2, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
+      cap.position.y = stemHeight;
+      mGroup.add(cap);
+
+      this.scene.add(mGroup);
+      this.mushrooms.push(mGroup);
+    }
+  }
+
+  // Mossy Granite Boulders & River Stepping Stones
+  spawnRockFormations(count = 50) {
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.95 });
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x3f6212, roughness: 0.9 });
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 40);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 40);
+      const y = this.terrain.getHeight(x, z);
+      const isSteppingStone = this.terrain.isWater(x, z);
+
+      const scale = isSteppingStone ? 0.8 + Math.random() * 0.5 : 1.2 + Math.random() * 1.6;
+      const mat = Math.random() < 0.45 ? mossMat : rockMat;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(scale, 1), mat);
+      
+      rock.position.set(x, isSteppingStone ? -0.1 : y + scale * 0.4, z);
+      rock.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      this.scene.add(rock);
+    }
+  }
+
+  // Hollow Fallen Logs along meadows
+  spawnFallenLogs(count = 25) {
+    const barkTex = TextureGenerator.createBarkTexture(0x4a321d);
+    const logMat = new THREE.MeshStandardMaterial({ map: barkTex, roughness: 0.9 });
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 50);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 50);
+      if (this.terrain.isWater(x, z)) continue;
+
+      const y = this.terrain.getHeight(x, z);
+      const len = 3.5 + Math.random() * 3.0;
+      const logGeom = new THREE.CylinderGeometry(0.38, 0.48, len, 8, 1, true); // Hollow tube
+      const log = new THREE.Mesh(logGeom, logMat);
+
+      log.rotation.z = Math.PI / 2;
+      log.rotation.y = Math.random() * Math.PI;
+      log.position.set(x, y + 0.35, z);
+      log.castShadow = true;
+      this.scene.add(log);
+    }
+  }
+
+  // Water Lily Pads & Lakeside Reeds
+  spawnWaterFlora() {
+    const padMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.6, side: THREE.DoubleSide });
+    const flowerMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.4 });
+    const reedMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.8 });
+
+    // Lily Pads in the central lake (z: 65, x: 0)
+    for (let i = 0; i < 28; i++) {
+      const lx = (Math.random() - 0.5) * 32;
+      const lz = 65 + (Math.random() - 0.5) * 32;
+      if (!this.terrain.isWater(lx, lz)) continue;
+
+      const padGroup = new THREE.Group();
+      padGroup.position.set(lx, this.terrain.waterLevel + 0.04, lz);
+
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(0.45 + Math.random() * 0.3, 8), padMat);
+      pad.rotateX(-Math.PI / 2);
+      padGroup.add(pad);
+
+      // Pink Water Blossom
+      if (Math.random() < 0.5) {
+        const flower = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.18, 6), flowerMat);
+        flower.position.y = 0.1;
+        padGroup.add(flower);
+      }
+      this.scene.add(padGroup);
+    }
+
+    // Cattail Reeds along riverbank
+    for (let r = 0; r < 40; r++) {
+      const rx = (Math.random() - 0.5) * 260;
+      const rz = (Math.random() - 0.5) * 260;
+      const ry = this.terrain.getHeight(rx, rz);
+      if (ry > 0.0 && ry < 1.4) {
+        // Near water edge
+        const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.8 + Math.random() * 0.8, 4), reedMat);
+        reed.position.set(rx, ry + 0.9, rz);
+        reed.rotation.z = (Math.random() - 0.5) * 0.2;
+        this.scene.add(reed);
+      }
+    }
+  }
+
+  // Woodcutter Goblin Campfire with flickering light
+  spawnCampfire() {
+    const cx = this.goblinCampCenter.x;
+    const cz = this.goblinCampCenter.z;
+    const cy = this.terrain.getHeight(cx, cz);
+
+    const fireGroup = new THREE.Group();
+    fireGroup.position.set(cx, cy, cz);
+
+    // Stone fire pit ring
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.9 });
+    for (let s = 0; s < 8; s++) {
+      const angle = (s / 8) * Math.PI * 2;
+      const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2, 0), stoneMat);
+      stone.position.set(Math.cos(angle) * 0.9, 0.1, Math.sin(angle) * 0.9);
+      fireGroup.add(stone);
+    }
+
+    // Fire logs
+    const logMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.95 });
+    for (let l = 0; l < 3; l++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.1, 5), logMat);
+      log.rotation.z = Math.PI / 3;
+      log.rotation.y = l * (Math.PI / 1.5);
+      log.position.y = 0.15;
+      fireGroup.add(log);
+    }
+
+    // Glowing flame core
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.35, 0.8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xf97316 })
+    );
+    flame.position.y = 0.5;
+    fireGroup.add(flame);
+
+    // Flickering Point Light
+    this.campfireLight = new THREE.PointLight(0xf97316, 2.2, 22, 1.2);
+    this.campfireLight.position.set(0, 1.2, 0);
+    fireGroup.add(this.campfireLight);
+
+    this.scene.add(fireGroup);
+  }
+
+  // Floating Forest Fireflies (Atmospheric Motes)
+  spawnFireflies(count = 120) {
+    const fireflyGeom = new THREE.BufferGeometry();
+    const positions = [];
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const y = Math.max(0.5, this.terrain.getHeight(x, z)) + 0.8 + Math.random() * 3.5;
+      positions.push(x, y, z);
+      this.fireflyPositions.push({
+        baseX: x,
+        baseY: y,
+        baseZ: z,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.8 + Math.random() * 1.5
+      });
+    }
+
+    fireflyGeom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const fireflyMat = new THREE.PointsMaterial({
+      color: 0xfde047,
+      size: 0.35,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending
+    });
+
+    this.fireflies = new THREE.Points(fireflyGeom, fireflyMat);
+    this.scene.add(this.fireflies);
+  }
+
   update(delta, time) {
     // Spin beaver village waterwheel
     if (this.beaverVillageGroup && this.beaverVillageGroup.userData.wheel) {
       this.beaverVillageGroup.userData.wheel.rotation.z += delta * 0.8;
     }
 
-    // Spin Korok pinwheel
+    // Spin Korok pinwheel and swirls
     this.puzzles.forEach(p => {
       if (p.meshGroup && p.meshGroup.userData.wheel) {
         p.meshGroup.userData.wheel.rotation.z += delta * 4.0;
       }
-      // Swirl lake leaf ring
       if (p.id === 'lake_leaf_ring' && p.meshGroup) {
         p.meshGroup.rotation.y += delta * 0.6;
       }
     });
+
+    // Flickering Campfire light
+    if (this.campfireLight) {
+      this.campfireLight.intensity = 1.8 + Math.sin(time * 12) * 0.4 + (Math.random() - 0.5) * 0.2;
+    }
+
+    // Floating gentle fireflies animation
+    if (this.fireflies && this.fireflyPositions.length > 0) {
+      const posAttr = this.fireflies.geometry.attributes.position;
+      for (let i = 0; i < this.fireflyPositions.length; i++) {
+        const fp = this.fireflyPositions[i];
+        const newX = fp.baseX + Math.sin(time * fp.speed + fp.phase) * 1.2;
+        const newY = fp.baseY + Math.cos(time * fp.speed * 0.8 + fp.phase) * 0.6;
+        const newZ = fp.baseZ + Math.sin(time * fp.speed * 0.6 + fp.phase) * 1.2;
+        posAttr.setXYZ(i, newX, newY, newZ);
+      }
+      posAttr.needsUpdate = true;
+    }
 
     // Gentle floating bob on pickups
     this.pickups.forEach((p, idx) => {

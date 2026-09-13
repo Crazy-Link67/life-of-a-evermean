@@ -63,6 +63,15 @@
       box.textContent = '⚠️ Unhandled Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'Unknown') + '\n' + (e.reason && e.reason.stack ? e.reason.stack : '');
     });
   </script>
+
+  <!-- Import map for native ES module execution when served unbundled -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"
+      }
+    }
+  </script>
 </head>
 <body>
   <div id="app"></div>
@@ -90,19 +99,6 @@
           });
       });
     }
-  </script>
-
-  <!-- GitHub Pages branch deployment fallback: forwards unbundled root access to /dist/ -->
-  <script>
-    (function() {
-      if (window.location.hostname.endsWith('github.io') && !window.location.pathname.includes('/dist/')) {
-        const devScript = document.querySelector('script[src*="main.js"]');
-        if (devScript) {
-          const path = window.location.pathname.replace(/\/?$/, '/dist/');
-          window.location.replace(path + window.location.search + window.location.hash);
-        }
-      }
-    })();
   </script>
 
   <script type="module" src="./src/main.js"></script>

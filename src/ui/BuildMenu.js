@@ -172,6 +172,7 @@ export class BuildMenu {
       card.className = 'build-card';
 
       let starCostTag = bp.stardustCost > 0 ? `<span class="cost-tag">✨ ${bp.stardustCost}</span>` : '';
+      let korokCostTag = bp.korokCost > 0 ? `<span class="cost-tag">🍃 ${bp.korokCost} Seed</span>` : '';
 
       card.innerHTML = `
         <div class="card-name">${bp.name}</div>
@@ -180,6 +181,7 @@ export class BuildMenu {
           <span class="cost-tag">🪵 ${bp.woodCost}</span>
           <span class="cost-tag">🌱 ${bp.biomassCost}</span>
           ${starCostTag}
+          ${korokCostTag}
         </div>
         <button class="btn-construct" data-id="${bp.id}">Plant / Construct</button>
       `;

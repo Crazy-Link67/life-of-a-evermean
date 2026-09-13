@@ -106,10 +106,10 @@ class Game {
       player.toggleRootBurrow();
     });
 
-    // Q: Launch Spore / Acorn
+    // Q or Right-Click secondary: Launch Spore / Acorn
     input.onAction('KeyQ', () => {
       if (!this.isGameRunning || this.isPaused) return;
-      player.launchProjectile();
+      player.launchProjectile(villagers);
     });
 
     // B: Evermean Civilization Build Menu
@@ -240,8 +240,8 @@ class Game {
       // 2. Player Controller
       player.update(delta, input, dayNight, environment);
 
-      // 3. AI Creatures (Woodcutters & Beavers)
-      villagers.update(delta, player, engine, audio);
+      // 3. AI Creatures (Woodcutters, Beavers, Koroks, Deer)
+      villagers.update(delta, player, engine, audio, colony);
 
       // 4. Civilization Colony
       colony.update(delta, player, now * 0.001);

@@ -30,7 +30,8 @@ export class PlayerEvermean {
     this.inventory = {
       wood: 20,
       acorns: 5,
-      stardust: 0
+      stardust: 0,
+      korokSeeds: 0
     };
 
     // States
@@ -139,19 +140,23 @@ export class PlayerEvermean {
     this.engine.spawnParticles(slamPoint, 25, 0x654321, 5 * power, 0.18);
 
     // Damage bonus if ambushing from camouflage disguise!
-    const ambushMult = this.isDisguised ? 3.0 : 1.0;
-    const baseDamage = (25 + this.growthStage * 15) * ambushMult;
+    const isSneakStrike = this.isDisguised;
+    const baseDamage = (25 + this.growthStage * 15);
 
-    // Break disguise when slamming
-    if (this.isDisguised) this.isDisguised = false;
+    if (isSneakStrike) {
+      this.engine.applyScreenShake(0.8);
+      this.engine.spawnShockwave(slamPoint, 4.0, 0xf59e0b);
+      this.isDisguised = false;
+    }
 
     // 1. Check hitting Woodcutter Goblins
     villagers.goblins.forEach(goblin => {
-      if (goblin.position.distanceTo(slamPoint) < 3.5 * (this.speciesConfig.slamRadiusMult || 1.0)) {
-        const res = villagers.damageGoblin(goblin, baseDamage, this.engine, audio);
+      if (goblin.position.distanceTo(slamPoint) < 3.8 * (this.speciesConfig.slamRadiusMult || 1.0)) {
+        const res = villagers.damageGoblin(goblin, baseDamage, this.engine, audio, isSneakStrike);
         if (res.defeated) {
           this.inventory.wood += res.woodReward;
           this.soilBiomass += res.biomassReward;
+          if (res.acornReward) this.inventory.acorns += res.acornReward;
         }
       }
     });
@@ -252,8 +257,8 @@ export class PlayerEvermean {
     audio.playDisguise();
   }
 
-  // Ranged Spore / Acorn Artillery
-  launchProjectile() {
+  // Ranged Spore / Acorn Artillery (fires explosive woodland acorn projectile)
+  launchProjectile(villagers) {
     if (this.inventory.acorns <= 0) return;
     this.inventory.acorns--;
 
@@ -264,26 +269,52 @@ export class PlayerEvermean {
       Math.cos(this.yaw) * Math.cos(this.pitch)
     ).normalize();
 
-    const projGeom = new THREE.SphereGeometry(0.2, 6, 6);
-    const projMat = new THREE.MeshStandardMaterial({ color: 0x854d0e });
+    const projGeom = new THREE.SphereGeometry(0.22, 8, 8);
+    const projMat = new THREE.MeshStandardMaterial({
+      color: 0xa16207,
+      roughness: 0.5,
+      emissive: 0x78350f,
+      emissiveIntensity: 0.3
+    });
     const projMesh = new THREE.Mesh(projGeom, projMat);
     projMesh.position.copy(this.position);
     projMesh.position.y += 1.5;
     this.scene.add(projMesh);
 
-    const vel = forwardDir.multiplyScalar(24);
-    const interval = setInterval(() => {
-      vel.y -= 9.8 * 0.04;
-      projMesh.position.addScaledVector(vel, 0.04);
-      const ground = this.terrain.getHeight(projMesh.position.x, projMesh.position.z);
+    const vel = forwardDir.multiplyScalar(28);
+    let lifetime = 0;
 
-      if (projMesh.position.y <= ground) {
+    const interval = setInterval(() => {
+      lifetime += 0.035;
+      vel.y -= 9.8 * 0.035;
+      projMesh.position.addScaledVector(vel, 0.035);
+
+      // Check collision with Goblins
+      if (villagers && villagers.goblins) {
+        for (let g of villagers.goblins) {
+          if (g.position.distanceTo(projMesh.position) < 1.4) {
+            clearInterval(interval);
+            this.engine.spawnParticles(projMesh.position, 20, 0xa16207, 4, 0.12);
+            audio.playHeadSlam(0.5);
+            const res = villagers.damageGoblin(g, 35, this.engine, audio);
+            if (res.defeated) {
+              this.inventory.wood += res.woodReward;
+              this.soilBiomass += res.biomassReward;
+            }
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      const ground = this.terrain.getHeight(projMesh.position.x, projMesh.position.z);
+      if (projMesh.position.y <= ground || lifetime > 4.0) {
         clearInterval(interval);
         this.engine.spawnParticles(projMesh.position, 15, 0x854d0e, 3, 0.1);
         audio.playHeadSlam(0.3);
         this.scene.remove(projMesh);
       }
-    }, 40);
+    }, 35);
   }
 
   takeDamage(amount, source = 'Enemy') {
@@ -477,6 +508,21 @@ export class PlayerEvermean {
         this.scene.remove(p);
         environment.pickups.splice(i, 1);
       }
+    }
+
+    // Check Zelda-style Korok Puzzle solving
+    if (environment && environment.checkKorokPuzzles) {
+      environment.checkKorokPuzzles(this.position, (puzzle) => {
+        this.inventory.korokSeeds = (this.inventory.korokSeeds || 0) + 1;
+        this.soilBiomass += 60;
+        this.photosynthesis = Math.min(this.maxPhotosynthesis, this.photosynthesis + 30);
+        audio.playCosmicSlam();
+        this.engine.spawnCosmicBurst(puzzle.position, 35);
+        this.engine.spawnShockwave(puzzle.position, 3.5, 0x22c55e);
+        if (window.showGameNotification) {
+          window.showGameNotification(`✨ Yahaha! You solved the ${puzzle.name} and found a Korok Seed! (+1 Seed, +60 Biomass)`);
+        }
+      });
     }
 
     // Check Stardust item collisions from day/night cycle

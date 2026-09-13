@@ -39,11 +39,16 @@ export class Engine {
 
     container.appendChild(this.renderer.domElement);
 
-    // 4. Lighting
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    // 4. Lighting & Atmosphere
+    this.ambientLight = new THREE.AmbientLight(0xfff3e0, 0.35);
     this.scene.add(this.ambientLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+    // Dual-bounce realistic natural ambient light (sky bounce vs earth bounce)
+    this.hemiLight = new THREE.HemisphereLight(0xb1e3ff, 0x3a2c1b, 0.65);
+    this.hemiLight.position.set(0, 50, 0);
+    this.scene.add(this.hemiLight);
+
+    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
     this.sunLight.position.set(60, 100, 40);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 2048;
@@ -55,11 +60,45 @@ export class Engine {
     this.sunLight.shadow.camera.right = d;
     this.sunLight.shadow.camera.top = d;
     this.sunLight.shadow.camera.bottom = -d;
-    this.sunLight.shadow.bias = -0.0005;
+    this.sunLight.shadow.bias = -0.0004;
+    this.sunLight.shadow.normalBias = 0.02;
     this.scene.add(this.sunLight);
+
+    // 5. Atmospheric Sky Dome (Dynamic Zenith to Horizon Gradient)
+    this.createSkyDome();
 
     // Resize Handler
     window.addEventListener('resize', () => this.onWindowResize());
+  }
+
+  createSkyDome() {
+    const skyGeom = new THREE.SphereGeometry(480, 32, 16);
+    // Custom gradient shader or vertex colored sky
+    const skyColors = [];
+    const pos = skyGeom.attributes.position;
+    const topColor = new THREE.Color(0x3a82ee);
+    const horizonColor = new THREE.Color(0xa7d5f8);
+    const groundColor = new THREE.Color(0x283b27);
+
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      const col = new THREE.Color();
+      if (y > 0) {
+        const factor = Math.min(1, y / 300);
+        col.copy(horizonColor).lerp(topColor, factor);
+      } else {
+        col.copy(horizonColor).lerp(groundColor, Math.min(1, -y / 100));
+      }
+      skyColors.push(col.r, col.g, col.b);
+    }
+    skyGeom.setAttribute('color', new THREE.Float32BufferAttribute(skyColors, 3));
+    const skyMat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    this.skyDome = new THREE.Mesh(skyGeom, skyMat);
+    this.scene.add(this.skyDome);
   }
 
   onWindowResize() {

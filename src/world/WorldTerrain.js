@@ -1,13 +1,16 @@
 import * as THREE from 'three';
+import { TextureGenerator } from '../core/TextureGenerator.js';
 
 // Procedural 3D Terrain with Rivers, Lakes, Biomes, and Height Queries
 export class WorldTerrain {
   constructor() {
     this.terrainMesh = null;
     this.waterMesh = null;
+    this.waterNormalMap = null;
     this.size = 360;
-    this.segments = 140;
+    this.segments = 160;
     this.waterLevel = 0.0;
+    this.waveTimer = 0;
   }
 
   // Smooth pseudo-noise terrain height function
@@ -103,11 +106,14 @@ export class WorldTerrain {
     geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geom.computeVertexNormals();
 
+    const grassTex = TextureGenerator.createGrassTexture();
+
     const terrainMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.85,
+      map: grassTex,
+      roughness: 0.8,
       metalness: 0.05,
-      flatShading: true
+      flatShading: false
     });
 
     this.terrainMesh = new THREE.Mesh(geom, terrainMat);
@@ -115,15 +121,20 @@ export class WorldTerrain {
     this.terrainMesh.name = 'Terrain';
     scene.add(this.terrainMesh);
 
-    // 2. River & Lake Water Surface
-    const waterGeom = new THREE.PlaneGeometry(this.size, this.size, 64, 64);
+    // 2. Realistic River & Lake Water Surface with Wave Normal Map
+    const waterGeom = new THREE.PlaneGeometry(this.size, this.size, 96, 96);
     waterGeom.rotateX(-Math.PI / 2);
+
+    this.waterNormalMap = TextureGenerator.createWaterNormalMap();
+
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x1d8eb5,
-      roughness: 0.1,
-      metalness: 0.25,
+      color: 0x187299,
+      roughness: 0.08,
+      metalness: 0.35,
+      normalMap: this.waterNormalMap,
+      normalScale: new THREE.Vector2(0.4, 0.4),
       transparent: true,
-      opacity: 0.75
+      opacity: 0.82
     });
 
     this.waterMesh = new THREE.Mesh(waterGeom, waterMat);
@@ -136,9 +147,15 @@ export class WorldTerrain {
   }
 
   update(delta, time) {
-    // Gentle water ripple animation
+    this.waveTimer += delta;
+    // Animate water normal map UVs for moving ripples and surface chop
+    if (this.waterNormalMap) {
+      this.waterNormalMap.offset.x = (this.waveTimer * 0.03) % 1;
+      this.waterNormalMap.offset.y = (this.waveTimer * 0.04) % 1;
+    }
+    // Gentle water surface tide animation
     if (this.waterMesh) {
-      this.waterMesh.position.y = this.waterLevel + Math.sin(time * 1.5) * 0.04;
+      this.waterMesh.position.y = this.waterLevel + Math.sin(time * 1.6) * 0.05;
     }
   }
 }

@@ -1,8 +1,10 @@
-// In-Game First-Person Survival HUD with Zelda / TOTK Wood-Carved Aesthetic
+// In-Game First-Person Survival HUD with Zelda / TOTK Aesthetic
+// Displays Survival Stats, Quest Objectives Tracker, Korok Seeds, and Toast Notifications
 
 export class HUD {
   constructor() {
     this.container = null;
+    this.notificationTimeout = null;
   }
 
   init() {
@@ -69,7 +71,7 @@ export class HUD {
           top: 18px;
           left: 50%;
           transform: translateX(-50%);
-          background: rgba(18, 14, 10, 0.8);
+          background: rgba(18, 14, 10, 0.85);
           backdrop-filter: blur(8px);
           padding: 10px 24px;
           border-radius: 30px;
@@ -91,7 +93,7 @@ export class HUD {
           margin-top: 2px;
         }
 
-        /* Top Right: Civilization & Inventory Resources */
+        /* Top Right: Inventory Resources */
         .resource-panel {
           position: absolute;
           top: 18px;
@@ -111,6 +113,45 @@ export class HUD {
           color: #f5f5f4;
           font-size: 13px;
           font-weight: 700;
+        }
+
+        /* Mid-Left: Quest Objectives Tracker */
+        .quest-panel {
+          position: absolute;
+          top: 240px;
+          left: 20px;
+          background: rgba(18, 14, 10, 0.75);
+          backdrop-filter: blur(8px);
+          padding: 12px 16px;
+          border-radius: 12px;
+          border: 1px solid rgba(139, 90, 43, 0.4);
+          max-width: 280px;
+          color: #f5f5f4;
+        }
+        .quest-header {
+          font-size: 12px;
+          font-weight: 800;
+          color: #facc15;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .quest-item {
+          font-size: 12px;
+          line-height: 1.4;
+          margin-bottom: 6px;
+          color: #d6d3d1;
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+        }
+        .quest-item.done {
+          color: #4ade80;
+          text-decoration: line-through;
+          opacity: 0.75;
         }
 
         /* Center Reticle */
@@ -147,6 +188,31 @@ export class HUD {
           letter-spacing: 0.5px;
           display: none;
           box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+
+        /* Toast Notification Banner */
+        .toast-banner {
+          position: absolute;
+          top: 85px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(17, 24, 39, 0.9);
+          border: 1.5px solid #f59e0b;
+          color: #fef08a;
+          padding: 10px 24px;
+          border-radius: 24px;
+          font-size: 13px;
+          font-weight: 700;
+          box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+          opacity: 0;
+          transition: opacity 0.3s ease, transform 0.3s ease;
+          pointer-events: none;
+          z-index: 999;
+          white-space: nowrap;
+        }
+        .toast-banner.show {
+          opacity: 1;
+          transform: translateX(-50%) translateY(5px);
         }
 
         /* Bottom Controls Bar */
@@ -218,8 +284,21 @@ export class HUD {
       <div class="resource-panel">
         <div class="resource-item">🪵 <span id="res-wood">20</span> Wood</div>
         <div class="resource-item">🌰 <span id="res-acorns">5</span> Acorns</div>
+        <div class="resource-item">🍃 <span id="res-korok">0</span> Seeds</div>
         <div class="resource-item">✨ <span id="res-stardust">0</span> Stardust</div>
       </div>
+
+      <!-- Quest / Objectives Tracker -->
+      <div class="quest-panel">
+        <div class="quest-header">📜 Forest Objectives</div>
+        <div class="quest-item" id="q-wood"><span>🪵</span> Harvest 40 Wood from trees</div>
+        <div class="quest-item" id="q-korok"><span>🍃</span> Solve a Korok puzzle (Lake/Hill)</div>
+        <div class="quest-item" id="q-build"><span>🏛️</span> Construct a Grove structure (B)</div>
+        <div class="quest-item" id="q-ambush"><span>⚡</span> Land an Ambush Strike from disguise</div>
+      </div>
+
+      <!-- Toast Banner -->
+      <div id="hud-toast" class="toast-banner">Notification</div>
 
       <!-- Crosshair -->
       <div class="crosshair"></div>
@@ -227,7 +306,10 @@ export class HUD {
       <!-- Badges -->
       <div class="status-badge-container">
         <div id="disguise-badge" class="status-badge" style="border-color: #22c55e; color: #86efac;">
-          🌳 DISGUISED AS TREE (Patrols Walk Past)
+          🌳 DISGUISED AS TREE (Goblins walk past)
+        </div>
+        <div id="ambush-badge" class="status-badge" style="border-color: #f59e0b; color: #fde047; box-shadow: 0 0 16px rgba(245,158,11,0.5);">
+          ⚡ SNEAK-STRIKE READY (3x CRITICAL DAMAGE)
         </div>
         <div id="swim-badge" class="status-badge">
           🌊 SWIMMING (Buoyant Wood - Space to Paddle)
@@ -241,17 +323,29 @@ export class HUD {
       <div class="controls-hint-bar">
         <span><span class="key-badge">L-Click</span> Head-Slam</span>
         <span><span class="key-badge">R-Click</span> Special / Scythe</span>
-        <span><span class="key-badge">C</span> Tree Disguise</span>
+        <span><span class="key-badge">C</span> Camouflage</span>
         <span><span class="key-badge">R</span> Burrow</span>
-        <span><span class="key-badge">Q</span> Spore Shot</span>
+        <span><span class="key-badge">Q</span> Acorn Slingshot</span>
         <span><span class="key-badge">Space</span> Jump / Swim</span>
         <span><span class="key-badge">B</span> Build Grove</span>
-        <span><span class="key-badge">V</span> 1st/3rd View</span>
+        <span><span class="key-badge">V</span> View</span>
         <span><span class="key-badge">Esc</span> Menu</span>
       </div>
     `;
 
     document.body.appendChild(this.container);
+
+    // Global Toast Notification function
+    window.showGameNotification = (msg) => {
+      const toast = document.getElementById('hud-toast');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('show');
+      if (this.notificationTimeout) clearTimeout(this.notificationTimeout);
+      this.notificationTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4000);
+    };
   }
 
   show() {
@@ -296,14 +390,22 @@ export class HUD {
     // 3. Resources
     document.getElementById('res-wood').textContent = player.inventory.wood;
     document.getElementById('res-acorns').textContent = player.inventory.acorns;
+    document.getElementById('res-korok').textContent = player.inventory.korokSeeds || 0;
     document.getElementById('res-stardust').textContent = player.inventory.stardust;
 
     // 4. Badges
     document.getElementById('disguise-badge').style.display = player.isDisguised ? 'block' : 'none';
+    document.getElementById('ambush-badge').style.display = player.isDisguised ? 'block' : 'none';
     document.getElementById('swim-badge').style.display = player.isSwimming ? 'block' : 'none';
     document.getElementById('burrow-badge').style.display = player.isRootBurrowed ? 'block' : 'none';
+
+    // 5. Quest Checklist State
+    const qWood = document.getElementById('q-wood');
+    if (player.inventory.wood >= 40) qWood.classList.add('done');
+
+    const qKorok = document.getElementById('q-korok');
+    if ((player.inventory.korokSeeds || 0) >= 1) qKorok.classList.add('done');
   }
 }
 
 export const hud = new HUD();
-

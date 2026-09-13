@@ -63,7 +63,7 @@
       box.textContent = '⚠️ Unhandled Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'Unknown') + '\n' + (e.reason && e.reason.stack ? e.reason.stack : '');
     });
   </script>
-  <script type="module" crossorigin src="./assets/index-CfoYVVnJ.js"></script>
+  <script type="module" crossorigin src="./assets/index-TUV4R9KL.js"></script>
 </head>
 <body>
   <div id="app"></div>
@@ -91,6 +91,19 @@
           });
       });
     }
+  </script>
+
+  <!-- GitHub Pages branch deployment fallback: forwards unbundled root access to /dist/ -->
+  <script>
+    (function() {
+      if (window.location.hostname.endsWith('github.io') && !window.location.pathname.includes('/dist/')) {
+        const devScript = document.querySelector('script[src*="main.js"]');
+        if (devScript) {
+          const path = window.location.pathname.replace(/\/?$/, '/dist/');
+          window.location.replace(path + window.location.search + window.location.hash);
+        }
+      }
+    })();
   </script>
 
 </body>

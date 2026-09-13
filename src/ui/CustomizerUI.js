@@ -271,6 +271,7 @@ export class CustomizerUI {
 
     document.body.appendChild(this.container);
 
+    this.setup3DPreview();
     this.setupEvents();
   }
 

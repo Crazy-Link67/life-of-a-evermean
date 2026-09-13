@@ -1,5 +1,6 @@
 import { saveSystem } from '../core/SaveSystem.js';
 import { audio } from '../core/AudioManager.js';
+import { input } from '../core/Input.js';
 
 // Starting Menu with Continue, New Game, Save, Load, Export, Import, and Settings
 export class MainMenu {
@@ -174,13 +175,14 @@ export class MainMenu {
       <div class="menu-buttons">
         <button id="btn-continue" class="btn-menu btn-primary" disabled>▶ Continue</button>
         <button id="btn-new-game" class="btn-menu">🌱 New Game (Customizer)</button>
+        <button id="btn-mode-toggle" class="btn-menu" style="border-color: #3b82f6; color: #93c5fd; background: #162235;">🖥️ Mode: PC Controls (Click to Switch)</button>
+        <button id="btn-install-pc" class="btn-menu" style="border-color: #10b981; color: #6ee7b7; font-weight: 800; background: #0e291e; box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);">📥 Install on PC / Computer</button>
         <button id="btn-save" class="btn-menu">💾 Save Game</button>
         <button id="btn-load" class="btn-menu">📂 Load Game</button>
         <button id="btn-export" class="btn-menu">📤 Export Save (.json)</button>
         <button id="btn-import" class="btn-menu">📥 Import Save (.json)</button>
         <button id="btn-settings" class="btn-menu">⚙️ Settings</button>
         <button id="btn-github" class="btn-menu" style="border-color: #38bdf8; color: #7dd3fc;">⭐ GitHub Repository</button>
-        <button id="btn-install-pwa" class="btn-menu" style="border-color: #a855f7; color: #d8b4fe;">📲 Install App (PWA)</button>
       </div>
 
       <!-- Save/Load Modal -->
@@ -220,6 +222,52 @@ export class MainMenu {
           <div class="setting-field">
             <span>Ambient & Wind Volume</span>
             <input type="range" id="set-vol-ambient" min="0" max="1" step="0.05" value="0.6">
+          </div>
+        </div>
+      </div>
+
+      <!-- Direct PC Installation Modal -->
+      <div id="modal-install-pc" class="menu-modal-overlay">
+        <div class="menu-modal" style="border-color: #10b981; max-width: 560px;">
+          <div class="modal-header">
+            <div class="modal-title" style="color: #6ee7b7;">📥 Install Life of an Evermean on PC</div>
+            <button id="btn-close-install-pc" class="btn-menu" style="padding: 4px 10px; font-size: 12px;">✕</button>
+          </div>
+          <div style="font-size: 13.5px; line-height: 1.6; color: #e2e8f0; margin-bottom: 16px;">
+            Install directly on your computer to play in a dedicated standalone window with full GPU performance, offline play, and desktop shortcuts!
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+            <!-- Option 1: Native PWA Install -->
+            <div style="background: #14281e; border: 1.5px solid #059669; border-radius: 10px; padding: 12px;">
+              <div style="font-weight: 800; color: #6ee7b7; font-size: 14px; margin-bottom: 3px;">Option 1: One-Click Native PC App</div>
+              <div style="font-size: 12px; color: #a7f3d0; margin-bottom: 8px;">Installs directly into Windows Apps, Start Menu, and Desktop as a native program.</div>
+              <button id="btn-do-native-install" class="btn-menu btn-primary" style="background: linear-gradient(135deg, #059669, #047857); border-color: #34d399; width: 100%;">
+                ⚡ Trigger Direct Browser Install
+              </button>
+            </div>
+
+            <!-- Option 2: Download Windows Desktop Shortcut -->
+            <div style="background: #1e1b2e; border: 1.5px solid #8b5cf6; border-radius: 10px; padding: 12px;">
+              <div style="font-weight: 800; color: #c4b5fd; font-size: 14px; margin-bottom: 3px;">Option 2: Download Windows Desktop Shortcut (.url)</div>
+              <div style="font-size: 12px; color: #ddd6fe; margin-bottom: 8px;">Downloads a ready-to-use desktop icon file. Put it on your Windows Desktop to launch instantly!</div>
+              <button id="btn-download-url-shortcut" class="btn-menu" style="border-color: #8b5cf6; color: #c4b5fd; width: 100%;">
+                🖥️ Download Desktop Shortcut (.url)
+              </button>
+            </div>
+
+            <!-- Option 3: Download Standalone App Launcher -->
+            <div style="background: #1a2332; border: 1.5px solid #3b82f6; border-radius: 10px; padding: 12px;">
+              <div style="font-weight: 800; color: #93c5fd; font-size: 14px; margin-bottom: 3px;">Option 3: Download Standalone App Launcher (.bat)</div>
+              <div style="font-size: 12px; color: #bfdbfe; margin-bottom: 8px;">Runs Edge or Chrome in frameless standalone app mode with zero browser tabs or toolbars.</div>
+              <button id="btn-download-bat-launcher" class="btn-menu" style="border-color: #3b82f6; color: #93c5fd; width: 100%;">
+                🚀 Download Standalone Launcher (.bat)
+              </button>
+            </div>
+          </div>
+
+          <div style="font-size: 12px; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+            💡 <strong>Tip for Edge / Chrome:</strong> You can also install anytime by clicking the <strong>Install / App Available icon [⊕]</strong> at the right edge of your address bar.
           </div>
         </div>
       </div>
@@ -298,19 +346,72 @@ export class MainMenu {
       window.open('https://github.com/Crazy-Link67/life-of-a-evermean', '_blank');
     });
 
-    // Install PWA Button
-    document.getElementById('btn-install-pwa').addEventListener('click', () => {
+    // PC / Mobile Mode Switch Button
+    document.getElementById('btn-mode-toggle').addEventListener('click', () => {
+      const newMode = input.toggleMode();
+      this.updateModeButton();
+      if (window.showGameNotification) {
+        window.showGameNotification(newMode === 'pc' ? '🖥️ Switched to PC Mode (Mouse Look + Keyboard)' : '📱 Switched to Mobile Mode (Touch Joystick + Buttons)');
+      }
+    });
+
+    // Direct PC Install Button (Opens Modal)
+    document.getElementById('btn-install-pc').addEventListener('click', () => {
+      document.getElementById('modal-install-pc').style.display = 'flex';
+    });
+
+    document.getElementById('btn-close-install-pc').addEventListener('click', () => {
+      document.getElementById('modal-install-pc').style.display = 'none';
+    });
+
+    // Option 1: Native PWA Install
+    document.getElementById('btn-do-native-install').addEventListener('click', () => {
       if (window.deferredPrompt) {
         window.deferredPrompt.prompt();
         window.deferredPrompt.userChoice.then((choiceResult) => {
           if (choiceResult.outcome === 'accepted') {
-            document.getElementById('btn-install-pwa').style.display = 'none';
+            document.getElementById('modal-install-pc').style.display = 'none';
+            if (window.showGameNotification) window.showGameNotification('✅ Life of an Evermean installed on your PC!');
           }
           window.deferredPrompt = null;
         });
       } else {
-        alert('To install Life of an Evermean as an app:\n\n• On Chrome / Edge (Desktop): Click the install button in the right side of the address bar.\n• On iOS (Safari): Tap the Share icon and choose "Add to Home Screen".\n• On Android (Chrome): Tap the menu (⋮) and select "Install app".');
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        if (isStandalone) {
+          alert('✅ Life of an Evermean is already running as an installed PC application!');
+        } else {
+          alert('Direct Install:\n\n• Look at the right side of your address bar in Chrome or Edge and click the Install icon [⊕].\n• Or click browser menu (⋮) -> "Install Life of an Evermean".');
+        }
       }
+    });
+
+    // Option 2: Download Windows Desktop Shortcut (.url)
+    document.getElementById('btn-download-url-shortcut').addEventListener('click', () => {
+      const currentUrl = window.location.href;
+      const iconUrl = new URL('./icon.svg', window.location.href).href;
+      const urlContent = `[{000214A0-0000-0000-C000-000000000046}]\r\nProp3=19,0\r\n[InternetShortcut]\r\nIDList=\r\nURL=${currentUrl}\r\nIconIndex=0\r\nIconFile=${iconUrl}\r\n`;
+      const blob = new Blob([urlContent], { type: 'application/octet-stream' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Life of an Evermean.url';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (window.showGameNotification) window.showGameNotification('📥 Downloaded Windows Desktop Shortcut! Drag it to your Desktop.');
+    });
+
+    // Option 3: Download Standalone App Launcher (.bat)
+    document.getElementById('btn-download-bat-launcher').addEventListener('click', () => {
+      const targetUrl = window.location.href;
+      const batContent = `@echo off\r\ntitle Life of an Evermean - Cosmic Ascension\r\necho Launching Life of an Evermean in standalone desktop app mode...\r\nstart msedge --app="${targetUrl}" || start chrome --app="${targetUrl}" || start "" "${targetUrl}"\r\n`;
+      const blob = new Blob([batContent], { type: 'application/x-bat' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Launch_Evermean_PC.bat';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (window.showGameNotification) window.showGameNotification('📥 Downloaded Windows App Launcher (.bat)! Run it to play in standalone mode.');
     });
 
     document.getElementById('btn-close-settings').addEventListener('click', () => {
@@ -321,6 +422,8 @@ export class MainMenu {
     document.getElementById('btn-close-slots').addEventListener('click', () => {
       document.getElementById('modal-slots').style.display = 'none';
     });
+
+    this.updateModeButton();
   }
 
   openSlotsModal(mode) {
@@ -411,10 +514,27 @@ export class MainMenu {
     }
   }
 
+  updateModeButton() {
+    const btn = document.getElementById('btn-mode-toggle');
+    if (!btn) return;
+    if (input.mode === 'pc') {
+      btn.innerHTML = '🖥️ Mode: PC Controls (Click to Switch to 📱 Mobile)';
+      btn.style.borderColor = '#3b82f6';
+      btn.style.color = '#93c5fd';
+      btn.style.background = '#162235';
+    } else {
+      btn.innerHTML = '📱 Mode: Mobile Controls (Click to Switch to 🖥️ PC)';
+      btn.style.borderColor = '#f59e0b';
+      btn.style.color = '#fef08a';
+      btn.style.background = '#2e1f0e';
+    }
+  }
+
   show() {
     if (this.container) {
       this.container.style.display = 'flex';
       this.refreshContinueButton();
+      this.updateModeButton();
       if (document.exitPointerLock) document.exitPointerLock();
     }
   }

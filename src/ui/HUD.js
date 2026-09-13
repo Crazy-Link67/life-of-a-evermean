@@ -1,3 +1,5 @@
+import { input } from '../core/Input.js';
+
 // In-Game First-Person Survival HUD with Zelda / TOTK Aesthetic
 // Displays Survival Stats, Quest Objectives Tracker, Korok Seeds, and Toast Notifications
 
@@ -341,10 +343,38 @@ export class HUD {
         <span><span class="key-badge">B</span> Build Grove</span>
         <span><span class="key-badge">V</span> View</span>
         <span><span class="key-badge">Esc</span> Menu</span>
+        <span><button id="hud-mode-toggle" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fef08a; padding: 2px 8px; border-radius: 4px; font-weight: 800; cursor: pointer; pointer-events: auto;">🖥️ PC</button></span>
       </div>
     `;
 
     document.body.appendChild(this.container);
+
+    // Sync HUD with PC/Mobile Mode
+    const modeBtn = document.getElementById('hud-mode-toggle');
+    const hintBar = this.container.querySelector('.controls-hint-bar');
+
+    const updateHudMode = (mode) => {
+      if (modeBtn) {
+        modeBtn.innerHTML = (mode === 'pc') ? '🖥️ PC Mode' : '📱 Mobile Mode';
+      }
+      if (hintBar) {
+        hintBar.style.display = (mode === 'pc') ? 'flex' : 'none';
+      }
+    };
+
+    if (modeBtn) {
+      modeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = input.toggleMode();
+        updateHudMode(next);
+        if (window.showGameNotification) {
+          window.showGameNotification(next === 'pc' ? '🖥️ Switched to PC Mode' : '📱 Switched to Mobile Mode');
+        }
+      });
+    }
+
+    input.onModeChange((mode) => updateHudMode(mode));
+    updateHudMode(input.mode);
 
     // Global Toast Notification function
     window.showGameNotification = (msg) => {

@@ -82,10 +82,15 @@
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       window.deferredPrompt = e;
-      const installBtn = document.getElementById('btn-install-pwa');
+      const installBtn = document.getElementById('btn-install-pc');
       if (installBtn) {
-        installBtn.style.display = 'flex';
+        installBtn.style.boxShadow = '0 0 24px rgba(16, 185, 129, 0.7)';
       }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      window.deferredPrompt = null;
+      console.log('Life of an Evermean PWA was installed on the device');
     });
 
     if ('serviceWorker' in navigator) {

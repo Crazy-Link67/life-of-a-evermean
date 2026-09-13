@@ -1,4 +1,4 @@
-// First-Person PointerLock & Control Manager
+// First-Person PointerLock & Control Manager (Supports PC & Mobile Modes)
 
 export class InputManager {
   constructor() {
@@ -9,7 +9,13 @@ export class InputManager {
     this.sensitivity = 1.0;
     this.invertY = false;
 
+    // Detect initial mode from localStorage or device touch capability
+    const savedMode = localStorage.getItem('evermean_control_mode');
+    const isTouchDevice = ('ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0));
+    this.mode = savedMode || (isTouchDevice ? 'mobile' : 'pc');
+
     this.onActionCallbacks = new Map();
+    this.onModeChangeCallbacks = [];
   }
 
   init(domElement) {
@@ -29,9 +35,9 @@ export class InputManager {
       this.keys[e.code] = false;
     });
 
-    // Pointer Lock Listeners
+    // Pointer Lock Listeners (Only active in PC mode)
     domElement.addEventListener('click', () => {
-      if (!this.isPointerLocked && document.pointerLockElement !== domElement) {
+      if (this.mode === 'pc' && !this.isPointerLocked && document.pointerLockElement !== domElement) {
         domElement.requestPointerLock().catch(() => {});
       }
     });
@@ -69,6 +75,48 @@ export class InputManager {
     domElement.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
+  // Set Control Mode ('pc' or 'mobile')
+  setMode(mode) {
+    if (this.mode === mode) return;
+    this.mode = mode;
+    localStorage.setItem('evermean_control_mode', mode);
+
+    if (this.mode === 'mobile' && this.isPointerLocked) {
+      this.unlockPointer();
+    }
+
+    this.onModeChangeCallbacks.forEach((cb) => cb(this.mode));
+  }
+
+  // Toggle between PC and Mobile mode
+  toggleMode() {
+    const nextMode = (this.mode === 'pc') ? 'mobile' : 'pc';
+    this.setMode(nextMode);
+    return nextMode;
+  }
+
+  onModeChange(callback) {
+    this.onModeChangeCallbacks.push(callback);
+  }
+
+  // Set virtual key state for touch controls
+  setVirtualKey(code, isPressed) {
+    this.keys[code] = !!isPressed;
+  }
+
+  // Trigger an action callback programmatically (e.g. from mobile touch buttons)
+  triggerAction(actionKey) {
+    if (this.onActionCallbacks.has(actionKey)) {
+      this.onActionCallbacks.get(actionKey)();
+    }
+  }
+
+  // Add mouse delta from touch swipes
+  addMouseDelta(dx, dy) {
+    this.mouseDelta.x += dx * this.sensitivity * 0.002;
+    this.mouseDelta.y += (this.invertY ? -1 : 1) * dy * this.sensitivity * 0.002;
+  }
+
   onAction(actionKey, callback) {
     this.onActionCallbacks.set(actionKey, callback);
   }
@@ -95,11 +143,10 @@ export class InputManager {
   }
 
   requestPointerLock() {
-    if (this.domElement && document.pointerLockElement !== this.domElement) {
+    if (this.mode === 'pc' && this.domElement && document.pointerLockElement !== this.domElement) {
       this.domElement.requestPointerLock().catch(() => {});
     }
   }
 }
 
 export const input = new InputManager();
-

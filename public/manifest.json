@@ -1,10 +1,12 @@
 {
+  "id": "life-of-an-evermean",
   "name": "Life of an Evermean: Cosmic Ascension",
   "short_name": "Evermean 3D",
   "description": "3D First-Person Zelda: Tears of the Kingdom Evermean Survival Game",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#070b19",
   "theme_color": "#ca8a04",

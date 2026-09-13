@@ -1,4 +1,4 @@
-const CACHE_NAME = 'evermean-pwa-v3';
+const CACHE_NAME = 'evermean-pwa-v4';
 const BASE = self.location.pathname.replace(/\/[^\/]*$/, '/');
 const STATIC_ASSETS = [
   BASE,

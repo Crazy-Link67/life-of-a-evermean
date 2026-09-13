@@ -13,6 +13,7 @@ import { hud } from './ui/HUD.js';
 import { buildMenu } from './ui/BuildMenu.js';
 import { customizerUI } from './ui/CustomizerUI.js';
 import { mainMenu } from './ui/MainMenu.js';
+import { mobileControls } from './ui/MobileControls.js';
 
 class Game {
   constructor() {
@@ -40,6 +41,7 @@ class Game {
 
     // 3. Initialize HUD & Menus
     hud.init();
+    mobileControls.init();
     buildMenu.init(player, engine);
 
     customizerUI.init((customConfig) => {

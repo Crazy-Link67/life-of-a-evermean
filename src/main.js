@@ -3,6 +3,11 @@ import { engine } from './core/Engine.js';
 import { input } from './core/Input.js';
 import { audio } from './core/AudioManager.js';
 import { saveSystem } from './core/SaveSystem.js';
+import { accountSystem } from './core/AccountSystem.js';
+import { campaign } from './core/CampaignManager.js';
+import { creatorMode } from './core/CreatorMode.js';
+import { arena } from './core/ArenaManager.js';
+import { multiplayer } from './net/MultiplayerManager.js';
 import { terrain } from './world/WorldTerrain.js';
 import { dayNight } from './world/DayNightCycle.js';
 import { environment } from './world/Environment.js';
@@ -14,6 +19,8 @@ import { buildMenu } from './ui/BuildMenu.js';
 import { customizerUI } from './ui/CustomizerUI.js';
 import { mainMenu } from './ui/MainMenu.js';
 import { mobileControls } from './ui/MobileControls.js';
+import { accountModal } from './ui/AccountModal.js';
+import { multiplayerLobby } from './ui/MultiplayerLobbyModal.js';
 
 class Game {
   constructor() {
@@ -43,6 +50,21 @@ class Game {
     hud.init();
     mobileControls.init();
     buildMenu.init(player, engine);
+    accountModal.init();
+    multiplayerLobby.init();
+
+    // 4. Initialize Core Expansion Systems
+    creatorMode.init(engine.scene, terrain, player, villagers, dayNight, colony);
+    arena.init(engine.scene, terrain, player, engine);
+    multiplayer.init(engine.scene, terrain, engine, player);
+
+    multiplayer.onRoomChange((roomCode, mode) => {
+      if (mode === 'arena') {
+        arena.startArenaDuel(roomCode);
+      } else {
+        arena.stopArenaDuel();
+      }
+    });
 
     customizerUI.init((customConfig) => {
       this.startNewGameWithConfig(customConfig);
@@ -55,6 +77,22 @@ class Game {
       },
       onNewGame: () => {
         customizerUI.show();
+      },
+      onCampaign: () => {
+        const savedConfig = accountSystem.getProfile()?.customEvermean;
+        this.startNewGameWithConfig(savedConfig || {});
+        campaign.startCampaign(1);
+      },
+      onCreator: () => {
+        const savedConfig = accountSystem.getProfile()?.customEvermean;
+        this.startNewGameWithConfig(savedConfig || {});
+        creatorMode.enable();
+      },
+      onMultiplayer: () => {
+        multiplayerLobby.show();
+      },
+      onAccount: () => {
+        accountModal.show();
       },
       onSaveSlot: (slotId) => {
         this.saveCurrentGame(slotId);
@@ -73,13 +111,13 @@ class Game {
       }
     });
 
-    // 4. Setup Input Action Callbacks
+    // 5. Setup Input Action Callbacks
     this.setupActions();
 
-    // 5. Check if saves exist, show Main Menu
+    // 6. Check if saves exist, show Main Menu
     mainMenu.show();
 
-    // 6. Start Lifecycle Loop
+    // 7. Start Lifecycle Loop
     this.loop();
   }
 
@@ -87,7 +125,21 @@ class Game {
     // Left-Click: TOTK Head-Slam
     input.onAction('Mouse0', () => {
       if (!this.isGameRunning || this.isPaused || buildMenu.isOpen) return;
+      const wasDisguised = player.isDisguised;
       player.executeHeadSlam(environment, villagers);
+
+      // Arena PvP clash
+      if (multiplayer.currentRoom && multiplayer.roomMode === 'arena') {
+        multiplayer.checkPvpHit(player.position, player.growthStage);
+      }
+
+      // Campaign story objective triggers
+      if (campaign.isActive) {
+        campaign.completeObjective('c1_break_camo', player, audio);
+        if (wasDisguised) {
+          campaign.completeObjective('c4_sneak_strike', player, audio);
+        }
+      }
     });
 
     // Right-Click: Secondary / Mantis Scythe / Elemental
@@ -112,6 +164,14 @@ class Game {
     input.onAction('KeyQ', () => {
       if (!this.isGameRunning || this.isPaused) return;
       player.launchProjectile(villagers);
+    });
+
+    // F: Creator Mode Flight Toggle
+    input.onAction('KeyF', () => {
+      if (!this.isGameRunning || this.isPaused) return;
+      if (creatorMode.isActive) {
+        creatorMode.toggleFlight();
+      }
     });
 
     // B: Evermean Civilization Build Menu
@@ -143,8 +203,13 @@ class Game {
     });
   }
 
-  startNewGameWithConfig(config) {
-    player.init(engine.scene, engine.camera, terrain, engine, config.presetKey || 'oak', config);
+  startNewGameWithConfig(config = {}) {
+    const savedEvermean = accountSystem.getProfile()?.customEvermean || {};
+    const finalConfig = {
+      ...savedEvermean,
+      ...config
+    };
+    player.init(engine.scene, engine.camera, terrain, engine, finalConfig.presetKey || 'oak', finalConfig);
     dayNight.setTime(1, 0.3);
 
     this.isGameRunning = true;
@@ -239,18 +304,36 @@ class Game {
       terrain.update(delta, now * 0.001);
       environment.update(delta, now * 0.001);
 
-      // 2. Player Controller
+      // 2. Creator Mode Flight
+      if (creatorMode.isActive && creatorMode.isFlying) {
+        creatorMode.updateFlight(delta, input);
+      }
+
+      // 3. Player Controller
       player.update(delta, input, dayNight, environment);
 
-      // 3. AI Creatures (Woodcutters, Beavers, Koroks, Deer)
+      // 4. AI Creatures (Woodcutters, Beavers, Koroks, Deer)
       villagers.update(delta, player, engine, audio, colony);
 
-      // 4. Civilization Colony
+      // 5. Civilization Colony
       colony.update(delta, player, now * 0.001, villagers, engine, audio);
 
-      // 5. Engine Effects & HUD
+      // 6. Multiplayer Network & Arena
+      multiplayer.update(delta);
+      arena.update(delta);
+
+      // 7. Engine Effects & HUD
       engine.update(delta);
       hud.update(player, dayNight);
+
+      // 8. Campaign story progress checks
+      if (campaign.isActive) {
+        if (player.inventory.wood >= 25) campaign.completeObjective('c1_harvest_wood', player, audio);
+        if (player.isSwimming) campaign.completeObjective('c2_swim_river', player, audio);
+        if ((player.inventory.korokSeeds || 0) >= 1) campaign.completeObjective('c3_solve_korok', player, audio);
+        if (player.inventory.stardust >= 1) campaign.completeObjective('c5_collect_star', player, audio);
+        if (player.growthStage >= 5) campaign.completeObjective('c5_ascend', player, audio);
+      }
 
       // Autosave periodically (every 60s)
       this.autosaveTimer += delta;

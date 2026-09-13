@@ -252,6 +252,100 @@ export class TreeModelGenerator {
       trunkMesh.add(veinMesh2);
     }
 
+    // Evermean Face & Glowing Knot-Hole Eyes
+    const faceGroup = new THREE.Group();
+    faceGroup.name = 'EvermeanFace';
+    const eyeHex = config.eyeColor || (config.glowColor || 0xfacc15);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: eyeHex });
+    const knotBorderMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(config.barkColor || '#5c4033').clone().offsetHSL(0, -0.2, -0.2),
+      roughness: 0.95
+    });
+
+    const eyeHeightY = trunkHeight * 0.25;
+    const faceZ = trunkRadiusTop * 0.95;
+
+    if (config.faceType === 'cyclops_knot') {
+      const knotRim = new THREE.Mesh(new THREE.TorusGeometry(0.12 * girthMult, 0.04 * girthMult, 6, 12), knotBorderMat);
+      knotRim.position.set(0, eyeHeightY, faceZ);
+      faceGroup.add(knotRim);
+
+      const eyeIris = new THREE.Mesh(new THREE.SphereGeometry(0.08 * girthMult, 8, 8), eyeMat);
+      eyeIris.position.set(0, eyeHeightY, faceZ - 0.02);
+      faceGroup.add(eyeIris);
+    } else if (config.faceType === 'sinister_slits') {
+      [-1, 1].forEach((side) => {
+        const slitGeom = new THREE.BoxGeometry(0.12 * girthMult, 0.03 * girthMult, 0.04 * girthMult);
+        slitGeom.rotateZ(side * Math.PI / 6);
+        const slit = new THREE.Mesh(slitGeom, eyeMat);
+        slit.position.set(side * 0.12 * girthMult, eyeHeightY, faceZ);
+        faceGroup.add(slit);
+      });
+    } else if (config.faceType === 'carved_mask') {
+      const maskGeom = new THREE.BoxGeometry(0.36 * girthMult, 0.4 * heightMult, 0.06 * girthMult);
+      const maskMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.9 });
+      const mask = new THREE.Mesh(maskGeom, maskMat);
+      mask.position.set(0, eyeHeightY, faceZ + 0.02);
+      faceGroup.add(mask);
+
+      [-1, 1].forEach((side) => {
+        const eye = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * girthMult, 0.04 * girthMult, 0.08 * girthMult, 6), eyeMat);
+        eye.rotateX(Math.PI / 2);
+        eye.position.set(side * 0.1 * girthMult, eyeHeightY + 0.05 * heightMult, faceZ + 0.05);
+        faceGroup.add(eye);
+      });
+    } else {
+      // Default: Dual authentic TOTK knot-hole carved eyes
+      [-1, 1].forEach((side) => {
+        const knotRim = new THREE.Mesh(new THREE.TorusGeometry(0.07 * girthMult, 0.025 * girthMult, 6, 10), knotBorderMat);
+        knotRim.position.set(side * 0.13 * girthMult, eyeHeightY, faceZ);
+        faceGroup.add(knotRim);
+
+        const iris = new THREE.Mesh(new THREE.SphereGeometry(0.045 * girthMult, 8, 8), eyeMat);
+        iris.position.set(side * 0.13 * girthMult, eyeHeightY, faceZ - 0.015);
+        faceGroup.add(iris);
+      });
+    }
+    trunkMesh.add(faceGroup);
+
+    // Special Accessories (Lantern, Mushrooms, Moss, Korok Charm)
+    if (config.accessories === 'lantern') {
+      const lanternBranch = new THREE.Mesh(new THREE.CylinderGeometry(0.03 * girthMult, 0.04 * girthMult, 0.5 * girthMult, 5), barkMaterial);
+      lanternBranch.rotateZ(Math.PI / 3);
+      lanternBranch.position.set(0.32 * girthMult, eyeHeightY + 0.25 * heightMult, 0.15 * girthMult);
+      trunkMesh.add(lanternBranch);
+
+      const lanternCage = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * girthMult, 0.07 * girthMult, 0.16 * heightMult, 6), new THREE.MeshStandardMaterial({ color: 0x1f1915, metalness: 0.8 }));
+      lanternCage.position.set(0.55 * girthMult, eyeHeightY + 0.08 * heightMult, 0.15 * girthMult);
+      trunkMesh.add(lanternCage);
+
+      const fireflyOrb = new THREE.Mesh(new THREE.SphereGeometry(0.045 * girthMult, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+      fireflyOrb.position.copy(lanternCage.position);
+      trunkMesh.add(fireflyOrb);
+    } else if (config.accessories === 'mushrooms') {
+      [-1, 1].forEach((side) => {
+        const shroomCap = new THREE.Mesh(new THREE.ConeGeometry(0.09 * girthMult, 0.06 * heightMult, 7), new THREE.MeshStandardMaterial({
+          color: 0x06b6d4,
+          emissive: 0x0891b2,
+          emissiveIntensity: 0.8
+        }));
+        shroomCap.position.set(side * (trunkRadiusTop + 0.05 * girthMult), eyeHeightY + 0.1 * heightMult, 0);
+        shroomCap.rotateZ(side * -Math.PI / 4);
+        trunkMesh.add(shroomCap);
+      });
+    } else if (config.accessories === 'moss') {
+      const mossMat = new THREE.MeshStandardMaterial({ color: 0x4d7c0f, roughness: 0.9 });
+      for (let m = 0; m < 5; m++) {
+        const strand = new THREE.Mesh(new THREE.CylinderGeometry(0.015 * girthMult, 0.005 * girthMult, 0.4 * heightMult, 4), mossMat);
+        strand.position.set((Math.random() - 0.5) * trunkRadiusTop * 1.5, eyeHeightY - 0.15 * heightMult, faceZ + 0.02);
+        trunkMesh.add(strand);
+      }
+    } else if (config.accessories === 'korok_charm') {
+      const charm = new THREE.Mesh(new THREE.DodecahedronGeometry(0.09 * girthMult, 0), new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6 }));
+      charm.position.set(0, eyeHeightY - 0.2 * heightMult, faceZ + 0.04);
+      trunkMesh.add(charm);
+    }
+
     // 2. Pointy Root Legs (Authentic TOTK Up-rooted tree legs)
     const legCount = config.legCount || 4;
     const legType = config.legType || 'pointy';

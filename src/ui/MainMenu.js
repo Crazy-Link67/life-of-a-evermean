@@ -174,7 +174,11 @@ export class MainMenu {
 
       <div class="menu-buttons">
         <button id="btn-continue" class="btn-menu btn-primary" disabled>▶ Continue</button>
-        <button id="btn-new-game" class="btn-menu">🌱 New Game (Customizer)</button>
+        <button id="btn-new-game" class="btn-menu">🌱 Survival Mode (Customizer)</button>
+        <button id="btn-campaign" class="btn-menu" style="border-color: #f59e0b; color: #fde047; background: #291800;">📜 Campaign Story Mode</button>
+        <button id="btn-creator" class="btn-menu" style="border-color: #ec4899; color: #f472b6; background: #2b0b1e;">🛠️ Creator Sandbox Mode</button>
+        <button id="btn-multiplayer" class="btn-menu" style="border-color: #06b6d4; color: #67e8f9; background: #083344;">🌐 Multiplayer & Arena</button>
+        <button id="btn-account" class="btn-menu" style="border-color: #10b981; color: #6ee7b7; background: #0e291e;">🌿 Player Account & Friends</button>
         <button id="btn-mode-toggle" class="btn-menu" style="border-color: #3b82f6; color: #93c5fd; background: #162235;">🖥️ Mode: PC Controls (Click to Switch)</button>
         <button id="btn-install-pc" class="btn-menu" style="border-color: #10b981; color: #6ee7b7; font-weight: 800; background: #0e291e; box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);">📥 Install on PC / Computer</button>
         <button id="btn-save" class="btn-menu">💾 Save Game</button>
@@ -295,6 +299,30 @@ export class MainMenu {
       audio.init();
       this.hide();
       if (this.callbacks.onNewGame) this.callbacks.onNewGame();
+    });
+
+    // Campaign Mode
+    document.getElementById('btn-campaign').addEventListener('click', () => {
+      audio.init();
+      this.hide();
+      if (this.callbacks.onCampaign) this.callbacks.onCampaign();
+    });
+
+    // Creator Mode
+    document.getElementById('btn-creator').addEventListener('click', () => {
+      audio.init();
+      this.hide();
+      if (this.callbacks.onCreator) this.callbacks.onCreator();
+    });
+
+    // Multiplayer & Arena
+    document.getElementById('btn-multiplayer').addEventListener('click', () => {
+      if (this.callbacks.onMultiplayer) this.callbacks.onMultiplayer();
+    });
+
+    // Player Account & Friends
+    document.getElementById('btn-account').addEventListener('click', () => {
+      if (this.callbacks.onAccount) this.callbacks.onAccount();
     });
 
     // Save Game Button

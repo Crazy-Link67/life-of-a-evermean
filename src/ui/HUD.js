@@ -1,4 +1,10 @@
 import { input } from '../core/Input.js';
+import { creatorMode } from '../core/CreatorMode.js';
+import { arena } from '../core/ArenaManager.js';
+import { campaign } from '../core/CampaignManager.js';
+import { multiplayer } from '../net/MultiplayerManager.js';
+import { accountModal } from './AccountModal.js';
+import { multiplayerLobby } from './MultiplayerLobbyModal.js';
 
 // In-Game First-Person Survival HUD with Zelda / TOTK Aesthetic
 // Displays Survival Stats, Quest Objectives Tracker, Korok Seeds, and Toast Notifications
@@ -287,26 +293,59 @@ export class HUD {
       </div>
 
       <!-- Top Banner -->
-      <div class="top-center-banner">
+      <div id="standard-top-banner" class="top-center-banner">
         <div id="day-counter" class="day-title">DAY 1 - MORNING</div>
         <div id="growth-stage-title" class="stage-subtitle">🌱 Baby Sprout Evermean</div>
       </div>
 
-      <!-- Resources -->
-      <div class="resource-panel">
-        <div class="resource-item">🪵 <span id="res-wood">20</span> Wood</div>
-        <div class="resource-item">🌰 <span id="res-acorns">5</span> Acorns</div>
-        <div class="resource-item">🍃 <span id="res-korok">0</span> Seeds</div>
-        <div class="resource-item">✨ <span id="res-stardust">0</span> Stardust</div>
+      <!-- Arena PvP Duel Banner -->
+      <div id="arena-hud-banner" class="top-center-banner" style="display: none; border-color: #ef4444; background: rgba(30, 10, 10, 0.9);">
+        <div style="font-size: 11px; font-weight: 800; color: #fca5a5; letter-spacing: 1px;">⚔️ EVERMEAN ARENA COLOSSEUM</div>
+        <div style="font-size: 18px; font-weight: 900; color: #fef08a;"><span id="arena-time">02:00</span></div>
+        <div style="font-size: 12px; color: #cbd5e1;">Score: <strong style="color: #4ade80;" id="arena-local-score">0</strong> Wins | <span id="arena-opponents">0 Remote Duelists</span></div>
+      </div>
+
+      <!-- Top Right: Resources & Quick Online Buttons -->
+      <div style="position: absolute; top: 18px; right: 20px; display: flex; gap: 8px; align-items: center; pointer-events: auto;">
+        <div class="resource-panel" style="position: static;">
+          <div class="resource-item">🪵 <span id="res-wood">20</span> Wood</div>
+          <div class="resource-item">🌰 <span id="res-acorns">5</span> Acorns</div>
+          <div class="resource-item">🍃 <span id="res-korok">0</span> Seeds</div>
+          <div class="resource-item">✨ <span id="res-stardust">0</span> Stardust</div>
+        </div>
+        <button id="btn-hud-mp" style="background: rgba(8, 51, 68, 0.85); border: 1px solid #06b6d4; color: #67e8f9; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">🌐 Online</button>
+        <button id="btn-hud-acc" style="background: rgba(14, 41, 30, 0.85); border: 1px solid #10b981; color: #6ee7b7; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">🌿 Friends</button>
       </div>
 
       <!-- Quest / Objectives Tracker -->
       <div class="quest-panel">
-        <div class="quest-header">📜 Forest Objectives</div>
-        <div class="quest-item" id="q-wood"><span>🪵</span> Harvest 40 Wood from trees</div>
-        <div class="quest-item" id="q-korok"><span>🍃</span> Solve a Korok puzzle (Lake/Hill)</div>
-        <div class="quest-item" id="q-build"><span>🏛️</span> Construct a Grove structure (B)</div>
-        <div class="quest-item" id="q-ambush"><span>⚡</span> Land an Ambush Strike from disguise</div>
+        <div class="quest-header" id="quest-header-title">📜 Forest Objectives</div>
+        <div id="quest-items-list">
+          <div class="quest-item" id="q-wood"><span>🪵</span> Harvest 40 Wood from trees</div>
+          <div class="quest-item" id="q-korok"><span>🍃</span> Solve a Korok puzzle (Lake/Hill)</div>
+          <div class="quest-item" id="q-build"><span>🏛️</span> Construct a Grove structure (B)</div>
+          <div class="quest-item" id="q-ambush"><span>⚡</span> Land an Ambush Strike from disguise</div>
+        </div>
+      </div>
+
+      <!-- Creator Mode Toolbox -->
+      <div id="creator-hud-bar" style="position: absolute; bottom: 65px; left: 20px; background: rgba(18, 14, 10, 0.85); backdrop-filter: blur(8px); border: 1.5px solid #ec4899; border-radius: 12px; padding: 10px 14px; display: none; flex-direction: column; gap: 8px; pointer-events: auto; z-index: 100; box-shadow: 0 8px 30px rgba(0,0,0,0.7);">
+        <div style="font-size: 12px; font-weight: 800; color: #f472b6; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <span>🛠️ CREATOR TOOLBOX</span>
+          <button id="btn-hud-flight" style="background: #be185d; border: 1px solid #f472b6; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-weight: 700;">🕊️ Flight: OFF (F)</button>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="btn-creator-spawn" data-type="sprout_minion" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🌱 Sprout</button>
+          <button class="btn-creator-spawn" data-type="deer" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦌 Deer</button>
+          <button class="btn-creator-spawn" data-type="beaver" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦫 Beaver</button>
+          <button class="btn-creator-spawn" data-type="goblin_spar" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">👹 Goblin</button>
+          <button class="btn-creator-spawn" data-type="shrooms" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🍄 Mushroom</button>
+          <button class="btn-creator-spawn" data-type="ancient_monolith" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🗿 Monolith</button>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #d4d4d8;">
+          <span>Time of Day</span>
+          <input type="range" id="creator-time-slider" min="0" max="1" step="0.05" value="0.3" style="width: 110px; cursor: pointer;">
+        </div>
       </div>
 
       <!-- Toast Banner -->
@@ -387,6 +426,47 @@ export class HUD {
         toast.classList.remove('show');
       }, 4000);
     };
+
+    // Quick Online & Account Buttons
+    const btnMp = document.getElementById('btn-hud-mp');
+    if (btnMp) {
+      btnMp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        multiplayerLobby.show();
+      });
+    }
+
+    const btnAcc = document.getElementById('btn-hud-acc');
+    if (btnAcc) {
+      btnAcc.addEventListener('click', (e) => {
+        e.stopPropagation();
+        accountModal.show();
+      });
+    }
+
+    // Creator Mode Toolbar listeners
+    const flightBtn = document.getElementById('btn-hud-flight');
+    if (flightBtn) {
+      flightBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        creatorMode.toggleFlight();
+      });
+    }
+
+    const timeSlider = document.getElementById('creator-time-slider');
+    if (timeSlider) {
+      timeSlider.addEventListener('input', (e) => {
+        creatorMode.setTimeOfDay(parseFloat(e.target.value));
+      });
+    }
+
+    const spawnButtons = this.container.querySelectorAll('.btn-creator-spawn');
+    spawnButtons.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        creatorMode.spawnProp(btn.dataset.type);
+      });
+    });
   }
 
   show() {
@@ -417,16 +497,47 @@ export class HUD {
     document.getElementById('biomass-bar').style.width = `${biomassPct}%`;
     document.getElementById('biomass-val').textContent = `${Math.floor(player.soilBiomass)} Bio`;
 
-    // 2. Day / Night Banner
-    const isDay = dayNight.isDay();
-    const timeWord = isDay ? (dayNight.timeOfDay < 0.5 ? 'MORNING' : 'AFTERNOON') : 'NIGHT';
-    document.getElementById('day-counter').textContent = `DAY ${dayNight.day} - ${timeWord}`;
+    // 2. Day / Night Banner & Arena Colosseum Banner
+    const isArena = arena.isActive || multiplayer.roomMode === 'arena';
+    const arenaBanner = document.getElementById('arena-hud-banner');
+    const stdBanner = document.getElementById('standard-top-banner');
 
-    const stageIcons = ['🌱', '🌿', '🌳', '👑', '🌌'];
-    const sIdx = player.growthStage - 1;
-    const stageName = player.stageNames[sIdx] || 'Evermean';
-    const specName = player.speciesConfig?.name || 'Evermean';
-    document.getElementById('growth-stage-title').textContent = `${stageIcons[sIdx] || '🌳'} ${stageName} (${specName})`;
+    if (isArena) {
+      if (arenaBanner) arenaBanner.style.display = 'block';
+      if (stdBanner) stdBanner.style.display = 'none';
+      const mins = Math.floor(Math.max(0, arena.roundTimer) / 60);
+      const secs = Math.floor(Math.max(0, arena.roundTimer) % 60).toString().padStart(2, '0');
+      const timeEl = document.getElementById('arena-time');
+      if (timeEl) timeEl.textContent = `${mins}:${secs}`;
+      const scoreEl = document.getElementById('arena-local-score');
+      if (scoreEl) scoreEl.textContent = multiplayer.arenaScores.localWins;
+      const oppEl = document.getElementById('arena-opponents');
+      if (oppEl) oppEl.textContent = `${multiplayer.remotePlayers.size} Remote Duelists`;
+    } else {
+      if (arenaBanner) arenaBanner.style.display = 'none';
+      if (stdBanner) stdBanner.style.display = 'block';
+
+      const isDay = dayNight.isDay();
+      const timeWord = isDay ? (dayNight.timeOfDay < 0.5 ? 'MORNING' : 'AFTERNOON') : 'NIGHT';
+      document.getElementById('day-counter').textContent = `DAY ${dayNight.day} - ${timeWord}`;
+
+      const stageIcons = ['🌱', '🌿', '🌳', '👑', '🌌'];
+      const sIdx = player.growthStage - 1;
+      const stageName = player.stageNames[sIdx] || 'Evermean';
+      const specName = player.speciesConfig?.name || 'Evermean';
+      document.getElementById('growth-stage-title').textContent = `${stageIcons[sIdx] || '🌳'} ${stageName} (${specName})`;
+    }
+
+    // Creator Mode Toolbar State
+    const creatorBar = document.getElementById('creator-hud-bar');
+    if (creatorBar) {
+      creatorBar.style.display = creatorMode.isActive ? 'flex' : 'none';
+      const flightBtn = document.getElementById('btn-hud-flight');
+      if (flightBtn) {
+        flightBtn.textContent = creatorMode.isFlying ? '🕊️ Flight: ON (F)' : '🕊️ Flight: OFF (F)';
+        flightBtn.style.background = creatorMode.isFlying ? '#059669' : '#be185d';
+      }
+    }
 
     // 3. Resources
     document.getElementById('res-wood').textContent = player.inventory.wood;
@@ -440,12 +551,31 @@ export class HUD {
     document.getElementById('swim-badge').style.display = player.isSwimming ? 'block' : 'none';
     document.getElementById('burrow-badge').style.display = player.isRootBurrowed ? 'block' : 'none';
 
-    // 5. Quest Checklist State
-    const qWood = document.getElementById('q-wood');
-    if (player.inventory.wood >= 40) qWood.classList.add('done');
-
-    const qKorok = document.getElementById('q-korok');
-    if ((player.inventory.korokSeeds || 0) >= 1) qKorok.classList.add('done');
+    // 5. Quest / Campaign Checklist State
+    if (campaign.isActive) {
+      const ch = campaign.getCurrentChapterData();
+      const titleEl = document.getElementById('quest-header-title');
+      if (titleEl) titleEl.textContent = `📜 ${ch.title}`;
+      const listEl = document.getElementById('quest-items-list');
+      if (listEl) {
+        listEl.innerHTML = ch.objectives
+          .map(
+            (o) => `
+          <div class="quest-item ${o.done ? 'done' : ''}">
+            <span>${o.done ? '✅' : '⏳'}</span> ${o.text}
+          </div>
+        `
+          )
+          .join('');
+      }
+    } else {
+      const titleEl = document.getElementById('quest-header-title');
+      if (titleEl) titleEl.textContent = '📜 Forest Objectives';
+      const qWood = document.getElementById('q-wood');
+      if (qWood && player.inventory.wood >= 40) qWood.classList.add('done');
+      const qKorok = document.getElementById('q-korok');
+      if (qKorok && (player.inventory.korokSeeds || 0) >= 1) qKorok.classList.add('done');
+    }
 
     // 6. First-Person Evermean Knot-Hole Sight Vignette
     const vignette = document.getElementById('evermean-sight-vignette');

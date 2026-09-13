@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TreeModelGenerator } from '../entities/TreeModelGenerator.js';
+import { accountSystem } from '../core/AccountSystem.js';
 
 // Evermean Character Customizer Studio with Live 3D Preview
 export class CustomizerUI {
@@ -18,6 +19,9 @@ export class CustomizerUI {
       barkColor: '#5c4033',
       foliageColor: '#2e8540',
       foliageType: 'deciduous',
+      faceType: 'knot_holes',
+      eyeColor: '#facc15',
+      accessories: 'lantern',
       legCount: 4,
       legType: 'pointy',
       crestType: 'blunt_stump',
@@ -254,6 +258,35 @@ export class CustomizerUI {
             </select>
           </div>
 
+          <div class="section-header">Facial Carvings & Eye Glow</div>
+          <div class="option-row">
+            <span>Face Knot Carvings</span>
+            <select id="face-select">
+              <option value="knot_holes" selected>Dual Knot-Hole Eyes (TOTK Classic)</option>
+              <option value="cyclops_knot">Single Cyclops Knot-Hole</option>
+              <option value="sinister_slits">Sinister Slit Eyes</option>
+              <option value="carved_mask">Ancient Wooden Mask</option>
+            </select>
+          </div>
+          <div class="option-row">
+            <span>Eye Glow Hue</span>
+            <div class="color-inputs">
+              <input type="color" id="eye-color-picker" value="#facc15">
+            </div>
+          </div>
+
+          <div class="section-header">Woodland Accessories</div>
+          <div class="option-row">
+            <span>Living Adornments</span>
+            <select id="accessories-select">
+              <option value="none">None (Wild Forest Tree)</option>
+              <option value="lantern" selected>Hanging Firefly Lantern</option>
+              <option value="mushrooms">Shoulder Bioluminescent Mushrooms</option>
+              <option value="moss">Draping Living Moss Tendrils</option>
+              <option value="korok_charm">Carved Leaf Korok Charm</option>
+            </select>
+          </div>
+
           <div class="section-header">Tree Dimensions</div>
           <div class="option-row">
             <span>Trunk Height</span>
@@ -264,6 +297,7 @@ export class CustomizerUI {
             <input type="range" id="girth-slider" min="0.8" max="1.4" step="0.05" value="1.0">
           </div>
 
+          <button id="btn-save-account-evermean" class="btn-menu" style="background: #14532d; border: 1.5px solid #22c55e; color: #86efac; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 6px;">💾 Save as Main Evermean (Account Profile)</button>
           <button id="btn-start-game" class="btn-start-game">Root into the World (Awaken)</button>
         </div>
       </div>
@@ -375,6 +409,21 @@ export class CustomizerUI {
       this.refreshPreviewModel();
     });
 
+    document.getElementById('face-select').addEventListener('change', (e) => {
+      this.config.faceType = e.target.value;
+      this.refreshPreviewModel();
+    });
+
+    document.getElementById('eye-color-picker').addEventListener('input', (e) => {
+      this.config.eyeColor = e.target.value;
+      this.refreshPreviewModel();
+    });
+
+    document.getElementById('accessories-select').addEventListener('change', (e) => {
+      this.config.accessories = e.target.value;
+      this.refreshPreviewModel();
+    });
+
     document.getElementById('height-slider').addEventListener('input', (e) => {
       this.config.heightScale = parseFloat(e.target.value);
       this.refreshPreviewModel();
@@ -383,6 +432,16 @@ export class CustomizerUI {
     document.getElementById('girth-slider').addEventListener('input', (e) => {
       this.config.girthScale = parseFloat(e.target.value);
       this.refreshPreviewModel();
+    });
+
+    // Save as Main Evermean to Account Profile
+    document.getElementById('btn-save-account-evermean').addEventListener('click', () => {
+      accountSystem.saveCustomEvermean(this.config);
+      if (window.showGameNotification) {
+        window.showGameNotification('🌿 Saved this custom Evermean to your Player Account profile!');
+      } else {
+        alert('🌿 Saved this custom Evermean to your Player Account profile!');
+      }
     });
 
     // Start Button
@@ -410,6 +469,9 @@ export class CustomizerUI {
     document.getElementById('foliage-select').value = p.foliageType;
     document.getElementById('legs-select').value = p.legCount.toString();
     document.getElementById('crest-select').value = p.crestType;
+    if (p.faceType) document.getElementById('face-select').value = p.faceType;
+    if (p.eyeColor) document.getElementById('eye-color-picker').value = p.eyeColor;
+    if (p.accessories) document.getElementById('accessories-select').value = p.accessories;
 
     document.getElementById('preview-species-name').textContent = `${p.name} (Baby Sprout Form)`;
 
@@ -440,7 +502,23 @@ export class CustomizerUI {
         this.previewCamera.updateProjectionMatrix();
         this.previewRenderer.setSize(width, height);
       }
-      this.selectPreset('oak');
+
+      const savedEvermean = accountSystem.getProfile()?.customEvermean;
+      if (savedEvermean && savedEvermean.presetKey) {
+        this.config = { ...this.config, ...savedEvermean };
+        document.getElementById('bark-color-picker').value = this.config.barkColor || '#5c4033';
+        document.getElementById('foliage-color-picker').value = this.config.foliageColor || '#2e8540';
+        document.getElementById('foliage-select').value = this.config.foliageType || 'deciduous';
+        document.getElementById('legs-select').value = (this.config.legCount || 4).toString();
+        document.getElementById('crest-select').value = this.config.crestType || 'blunt_stump';
+        document.getElementById('face-select').value = this.config.faceType || 'knot_holes';
+        document.getElementById('eye-color-picker').value = this.config.eyeColor || '#facc15';
+        document.getElementById('accessories-select').value = this.config.accessories || 'lantern';
+        document.getElementById('preview-species-name').textContent = `${this.config.name || 'Custom Evermean'} (Profile Main)`;
+        this.refreshPreviewModel();
+      } else {
+        this.selectPreset('oak');
+      }
     }
   }
 

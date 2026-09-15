@@ -109,19 +109,39 @@ export class DayNightCycle {
       this.moonMesh.position.set(-sunX + playerPos.x, -sunY, -sunZ + playerPos.z);
     }
 
-    // Update Sun Directional Light
+    // Update Sun Directional Light & Rim Light
     if (this.engine && this.engine.sunLight) {
       const sunHeightRatio = Math.sin(angle);
       if (sunHeightRatio > -0.1) {
         this.engine.sunLight.position.set(sunX, Math.max(10, sunY), sunZ);
-        const dayIntensity = Math.max(0.1, sunHeightRatio * 1.3);
+        const dayIntensity = Math.max(0.1, sunHeightRatio * 1.45);
         this.engine.sunLight.intensity = dayIntensity;
         this.engine.sunLight.color.setHex(sunHeightRatio < 0.2 ? 0xffaa55 : 0xfffaed);
+        if (this.engine.rimLight) {
+          this.engine.rimLight.position.set(-sunX * 0.75, Math.max(15, -sunY * 0.3 + 20), -sunZ * 0.75);
+          this.engine.rimLight.intensity = dayIntensity * 0.38;
+        }
       } else {
         // Moonlight at night
         this.engine.sunLight.position.set(-sunX, Math.max(10, -sunY), -sunZ);
-        this.engine.sunLight.intensity = 0.25;
+        this.engine.sunLight.intensity = 0.28;
         this.engine.sunLight.color.setHex(0xa0c4ff);
+        if (this.engine.rimLight) {
+          this.engine.rimLight.intensity = 0.12;
+        }
+      }
+    }
+
+    // Update Sun Corona position in Sky Dome
+    if (this.engine && this.engine.sunDisc) {
+      const coronaDir = new THREE.Vector3(sunX, Math.max(-50, sunY), sunZ).normalize().multiplyScalar(440);
+      this.engine.sunDisc.position.copy(coronaDir);
+      this.engine.sunDisc.lookAt(0, 0, 0);
+      this.engine.sunDisc.visible = sunY > -10;
+      if (this.engine.sunHalo) {
+        this.engine.sunHalo.position.copy(coronaDir);
+        this.engine.sunHalo.lookAt(0, 0, 0);
+        this.engine.sunHalo.visible = sunY > -10;
       }
     }
 

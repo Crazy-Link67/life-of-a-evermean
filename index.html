@@ -35,7 +35,23 @@
       position: absolute;
       inset: 0;
     }
+    #app canvas {
+      filter: contrast(1.05) saturate(1.12) brightness(1.02);
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .cinematic-vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.28);
+      z-index: 5;
+    }
   </style>
+
+  <!-- WebRTC PeerJS for Cross-Device Online Server Multiplayer -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <!-- Global Error Handler -->
   <script>
@@ -75,6 +91,7 @@
 </head>
 <body>
   <div id="app"></div>
+  <div class="cinematic-vignette"></div>
 
   <!-- Service Worker Registration & PWA Prompt Capture -->
   <script>

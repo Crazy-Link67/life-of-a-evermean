@@ -137,9 +137,18 @@ class Game {
       const wasDisguised = player.isDisguised;
       player.executeHeadSlam(environment, villagers);
 
-      // Arena PvP clash
-      if (multiplayer.currentRoom && multiplayer.roomMode === 'arena') {
-        multiplayer.checkPvpHit(player.position, player.growthStage);
+      // Arena PvP clash & multiplayer attack broadcast
+      if (multiplayer.currentRoom) {
+        multiplayer.broadcast({
+          type: 'PLAYER_ATTACK',
+          id: accountSystem.getProfile().id,
+          position: { x: player.position.x, y: player.position.y, z: player.position.z },
+          yaw: player.yaw,
+          glowColor: player.speciesConfig?.glowColor || 0xca8a04
+        });
+        if (multiplayer.roomMode === 'arena') {
+          multiplayer.checkPvpHit(player.position, player.growthStage);
+        }
       }
 
       // Campaign story objective triggers
@@ -155,6 +164,16 @@ class Game {
     input.onAction('Mouse2', () => {
       if (!this.isGameRunning || this.isPaused || buildMenu.isOpen) return;
       player.executeSecondaryAction(villagers);
+
+      if (multiplayer.currentRoom) {
+        multiplayer.broadcast({
+          type: 'PLAYER_ATTACK',
+          id: accountSystem.getProfile().id,
+          position: { x: player.position.x, y: player.position.y, z: player.position.z },
+          yaw: player.yaw,
+          glowColor: 0x38bdf8
+        });
+      }
     });
 
     // C: Camouflage Disguise

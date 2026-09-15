@@ -31,7 +31,10 @@ export class Engine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.15;
+    if (THREE.SRGBColorSpace) {
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    }
 
     if (settings.shadows !== false) {
       this.renderer.shadowMap.enabled = true;
@@ -41,31 +44,37 @@ export class Engine {
     container.appendChild(this.renderer.domElement);
 
     // 4. Lighting & Atmosphere
-    this.ambientLight = new THREE.AmbientLight(0xfff3e0, 0.35);
+    this.ambientLight = new THREE.AmbientLight(0xfff3e0, 0.38);
     this.scene.add(this.ambientLight);
 
     // Dual-bounce realistic natural ambient light (sky bounce vs earth bounce)
-    this.hemiLight = new THREE.HemisphereLight(0xb1e3ff, 0x3a2c1b, 0.65);
+    this.hemiLight = new THREE.HemisphereLight(0xb1e3ff, 0x3a2c1b, 0.7);
     this.hemiLight.position.set(0, 50, 0);
     this.scene.add(this.hemiLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
+    // Primary Sun Directional Light with 4096 Ultra-res PCF Soft Shadows
+    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.45);
     this.sunLight.position.set(60, 100, 40);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.mapSize.width = 4096;
+    this.sunLight.shadow.mapSize.height = 4096;
     this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 300;
-    const d = 70;
+    this.sunLight.shadow.camera.far = 320;
+    const d = 75;
     this.sunLight.shadow.camera.left = -d;
     this.sunLight.shadow.camera.right = d;
     this.sunLight.shadow.camera.top = d;
     this.sunLight.shadow.camera.bottom = -d;
-    this.sunLight.shadow.bias = -0.0004;
-    this.sunLight.shadow.normalBias = 0.02;
+    this.sunLight.shadow.bias = -0.0003;
+    this.sunLight.shadow.normalBias = 0.03;
     this.scene.add(this.sunLight);
 
-    // 5. Atmospheric Sky Dome (Dynamic Zenith to Horizon Gradient)
+    // Dynamic Rim Backlight (TOTK silhouette edge highlights)
+    this.rimLight = new THREE.DirectionalLight(0xffeedd, 0.45);
+    this.rimLight.position.set(-60, 45, -40);
+    this.scene.add(this.rimLight);
+
+    // 5. Atmospheric Sky Dome & Sun Corona
     this.createSkyDome();
 
     // Resize Handler
@@ -100,6 +109,35 @@ export class Engine {
     });
     this.skyDome = new THREE.Mesh(skyGeom, skyMat);
     this.scene.add(this.skyDome);
+
+    // Sun Corona Core Disc
+    const sunGeom = new THREE.CircleGeometry(16, 32);
+    const sunMat = new THREE.MeshBasicMaterial({
+      color: 0xfff5c0,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.sunDisc = new THREE.Mesh(sunGeom, sunMat);
+    const sunDir = new THREE.Vector3(60, 100, 40).normalize().multiplyScalar(440);
+    this.sunDisc.position.copy(sunDir);
+    this.sunDisc.lookAt(0, 0, 0);
+    this.scene.add(this.sunDisc);
+
+    // Outer soft radiant corona halo
+    const haloGeom = new THREE.CircleGeometry(48, 32);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xfde047,
+      transparent: true,
+      opacity: 0.25,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.sunHalo = new THREE.Mesh(haloGeom, haloMat);
+    this.sunHalo.position.copy(sunDir);
+    this.sunHalo.lookAt(0, 0, 0);
+    this.scene.add(this.sunHalo);
   }
 
   onWindowResize() {

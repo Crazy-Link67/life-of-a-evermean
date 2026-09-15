@@ -128,13 +128,13 @@ export class WorldTerrain {
     this.waterNormalMap = TextureGenerator.createWaterNormalMap();
 
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x187299,
-      roughness: 0.08,
-      metalness: 0.35,
+      color: 0x1488a8,
+      roughness: 0.04,
+      metalness: 0.55,
       normalMap: this.waterNormalMap,
-      normalScale: new THREE.Vector2(0.4, 0.4),
+      normalScale: new THREE.Vector2(0.65, 0.65),
       transparent: true,
-      opacity: 0.82
+      opacity: 0.86
     });
 
     this.waterMesh = new THREE.Mesh(waterGeom, waterMat);
@@ -150,8 +150,8 @@ export class WorldTerrain {
     this.waveTimer += delta;
     // Animate water normal map UVs for moving ripples and surface chop
     if (this.waterNormalMap) {
-      this.waterNormalMap.offset.x = (this.waveTimer * 0.03) % 1;
-      this.waterNormalMap.offset.y = (this.waveTimer * 0.04) % 1;
+      this.waterNormalMap.offset.x = (this.waveTimer * 0.025) % 1;
+      this.waterNormalMap.offset.y = (this.waveTimer * 0.038) % 1;
     }
     // Gentle water surface tide animation
     if (this.waterMesh) {

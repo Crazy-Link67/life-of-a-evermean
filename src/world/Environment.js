@@ -310,7 +310,7 @@ export class Environment {
   }
 
   // Scatter 3D Instanced Wind-blown Grass Tufts & Wildflowers
-  spawnInstancedFoliage(count = 650) {
+  spawnInstancedFoliage(count = 1400) {
     // 1. Instanced Grass Tufts (Blades)
     const tuftTex = TextureGenerator.createGrassTuftTexture();
     const tuftMat = new THREE.MeshLambertMaterial({
@@ -320,9 +320,31 @@ export class Environment {
       side: THREE.DoubleSide
     });
 
+    // Dynamic wind sway shader injection (Breath of the Wild / TOTK wind simulation)
+    tuftMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = { value: 0 };
+      tuftMat.userData.shader = shader;
+      shader.vertexShader = `
+        uniform float uTime;
+      ` + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `
+        #include <begin_vertex>
+        if (position.y > 0.1) {
+          float windX = sin(uTime * 2.6 + position.x * 0.35 + position.z * 0.35) * 0.18;
+          float windZ = cos(uTime * 1.9 + position.z * 0.28) * 0.12;
+          transformed.x += windX * (position.y / 0.9);
+          transformed.z += windZ * (position.y / 0.9);
+        }
+        `
+      );
+    };
+    this.tuftMat = tuftMat;
+
     // Cross-quad blade geometry
-    const planeA = new THREE.PlaneGeometry(0.8, 0.9);
-    planeA.translate(0, 0.45, 0);
+    const planeA = new THREE.PlaneGeometry(0.85, 0.95);
+    planeA.translate(0, 0.47, 0);
     const planeB = planeA.clone().rotateY(Math.PI / 2);
     
     // Combine two crossed planes for volumetric look
@@ -1034,6 +1056,11 @@ export class Environment {
   }
 
   update(delta, time) {
+    // Dynamic wind sway across foliage tufts
+    if (this.tuftMat && this.tuftMat.userData && this.tuftMat.userData.shader) {
+      this.tuftMat.userData.shader.uniforms.uTime.value = time;
+    }
+
     // Spin beaver village waterwheel
     if (this.beaverVillageGroup && this.beaverVillageGroup.userData.wheel) {
       this.beaverVillageGroup.userData.wheel.rotation.z += delta * 0.8;

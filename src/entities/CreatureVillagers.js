@@ -791,6 +791,7 @@ export class CreatureVillagers {
       cluckTimer: 3.5 + Math.random() * 5,
       wingL,
       wingR,
+      targetPos: new THREE.Vector3(x, 0, z),
       homeCenter: new THREE.Vector3(x, 0, z)
     };
 
@@ -911,6 +912,7 @@ export class CreatureVillagers {
       speed: 1.2,
       state: 'graze',
       timer: 6.0,
+      targetPos: new THREE.Vector3(x, 0, z),
       homeCenter: new THREE.Vector3(x, 0, z)
     };
 
@@ -1379,6 +1381,10 @@ export class CreatureVillagers {
         );
       }
 
+      if (!u.targetPos) {
+        u.targetPos = new THREE.Vector3(cucco.position.x, 0, cucco.position.z);
+      }
+
       const toTarget = new THREE.Vector3().subVectors(u.targetPos, cucco.position);
       if (toTarget.length() > 0.8) {
         toTarget.normalize();
@@ -1461,6 +1467,10 @@ export class CreatureVillagers {
         );
       }
 
+      if (!u.targetPos) {
+        u.targetPos = new THREE.Vector3(d.position.x, 0, d.position.z);
+      }
+
       const toTarget = new THREE.Vector3().subVectors(u.targetPos, d.position);
       if (toTarget.length() > 1.2) {
         toTarget.normalize();
@@ -1500,6 +1510,10 @@ export class CreatureVillagers {
               u.homeCenter.z + (Math.random() - 0.5) * 24
             );
           }
+        }
+
+        if (!u.targetPos) {
+          u.targetPos = new THREE.Vector3(f.position.x, 0, f.position.z);
         }
 
         const toTarget = new THREE.Vector3().subVectors(u.targetPos, f.position);

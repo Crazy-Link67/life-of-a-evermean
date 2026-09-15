@@ -10,7 +10,7 @@ export class MultiplayerManager {
     this.roomMode = 'social'; // 'social', 'coop', 'arena'
     this.isHost = false;
     this.channel = null;
-    this.remotePlayers = new Map(); // id -> { id, username, friendCode, config, model, targetPos, targetYaw, hp, maxHp, speechBubble }
+    this.remotePlayers = new Map(); // playerKey -> { id, playerKey, username, friendCode, config, model, targetPos, targetYaw, hp, maxHp, speechBubble }
     this.scene = null;
     this.terrain = null;
     this.engine = null;
@@ -20,6 +20,10 @@ export class MultiplayerManager {
     this.onScoreCallbacks = [];
     this.arenaScores = { localWins: 0, remoteWins: 0 };
     this.syncTimer = 0;
+    this.sessionId = 'sess_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+    this.seenPackets = new Set();
+    this.peer = null;
+    this.peerConnections = new Map();
   }
 
   init(scene, terrain, engine, player) {
@@ -66,7 +70,7 @@ export class MultiplayerManager {
       friendCode: profile.friendCode,
       config: profile.customEvermean,
       stage: this.localPlayer ? this.localPlayer.growthStage : 1,
-      position: this.localPlayer ? this.localPlayer.position : { x: 0, y: 2, z: 0 },
+      position: this.localPlayer ? { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z } : { x: 0, y: 2, z: 0 },
       yaw: this.localPlayer ? this.localPlayer.yaw : 0
     });
 
@@ -83,8 +87,20 @@ export class MultiplayerManager {
     });
 
     if (this.channel) {
-      this.channel.close();
+      try { this.channel.close(); } catch (e) {}
       this.channel = null;
+    }
+
+    if (this.peerConnections) {
+      this.peerConnections.forEach((conn) => {
+        try { conn.close(); } catch (e) {}
+      });
+      this.peerConnections.clear();
+    }
+
+    if (this.peer) {
+      try { this.peer.destroy(); } catch (e) {}
+      this.peer = null;
     }
 
     // Clean up all remote 3D models
@@ -99,31 +115,206 @@ export class MultiplayerManager {
   }
 
   setupNetworkChannel() {
-    if (!window.BroadcastChannel) return;
+    // 1. Same-device / cross-tab broadcast channel
+    if (window.BroadcastChannel) {
+      try {
+        this.channel = new BroadcastChannel(`evermean_room_${this.currentRoom}`);
+        this.channel.onmessage = (event) => {
+          this.handleNetworkMessage(event.data);
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel error:', e);
+      }
+    }
 
-    this.channel = new BroadcastChannel(`evermean_room_${this.currentRoom}`);
-    this.channel.onmessage = (event) => {
-      this.handleNetworkMessage(event.data);
+    // 2. Cross-device WebRTC online server mesh via PeerJS
+    this.setupWebRTC();
+  }
+
+  setupWebRTC() {
+    const cleanRoom = this.currentRoom.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const hostPeerId = `evermean-room-${cleanRoom}`;
+
+    const initPeer = () => {
+      if (!window.Peer) return;
+
+      const peerConfig = {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      };
+
+      if (this.isHost) {
+        try {
+          this.peer = new window.Peer(hostPeerId, peerConfig);
+
+          this.peer.on('open', (id) => {
+            console.log('👑 PeerJS Host Online with ID:', id);
+            if (window.showGameNotification) {
+              window.showGameNotification(`🌐 Online WebRTC Server Active! Room: ${this.currentRoom}`);
+            }
+          });
+
+          this.peer.on('connection', (conn) => {
+            conn.on('open', () => {
+              console.log('🔗 Client connected to host via WebRTC:', conn.peer);
+              this.peerConnections.set(conn.peer, conn);
+
+              const profile = accountSystem.getProfile();
+              const welcomePacket = {
+                type: 'PLAYER_HEARTBEAT',
+                id: profile.id,
+                username: profile.username,
+                friendCode: profile.friendCode,
+                config: profile.customEvermean,
+                stage: this.localPlayer ? this.localPlayer.growthStage : 1,
+                position: this.localPlayer ? { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z } : { x: 0, y: 2, z: 0 },
+                yaw: this.localPlayer ? this.localPlayer.yaw : 0,
+                hp: this.localPlayer ? this.localPlayer.barkHp : 100,
+                roomMode: this.roomMode,
+                senderSessionId: this.sessionId,
+                packetId: 'pkt_' + Math.random().toString(36).substring(2, 9)
+              };
+              conn.send(welcomePacket);
+            });
+
+            conn.on('data', (data) => {
+              this.handleNetworkMessage(data);
+              // Relay to all other connected clients
+              this.peerConnections.forEach((otherConn, otherId) => {
+                if (otherId !== conn.peer && otherConn.open) {
+                  otherConn.send(data);
+                }
+              });
+            });
+
+            conn.on('close', () => {
+              this.peerConnections.delete(conn.peer);
+            });
+            conn.on('error', () => {
+              this.peerConnections.delete(conn.peer);
+            });
+          });
+
+          this.peer.on('error', (err) => {
+            console.warn('PeerJS Host Notice:', err);
+          });
+        } catch (e) {
+          console.warn('PeerJS init error:', e);
+        }
+      } else {
+        // Client joining room
+        try {
+          this.peer = new window.Peer(peerConfig);
+
+          this.peer.on('open', (myPeerId) => {
+            console.log('🚀 PeerJS Client Online with ID:', myPeerId);
+            const hostConn = this.peer.connect(hostPeerId, { reliable: true });
+
+            hostConn.on('open', () => {
+              console.log('✅ Connected to Host via WebRTC!');
+              this.peerConnections.set(hostPeerId, hostConn);
+
+              const profile = accountSystem.getProfile();
+              const joinPacket = {
+                type: 'PLAYER_JOIN',
+                id: profile.id,
+                username: profile.username,
+                friendCode: profile.friendCode,
+                config: profile.customEvermean,
+                stage: this.localPlayer ? this.localPlayer.growthStage : 1,
+                position: this.localPlayer ? { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z } : { x: 0, y: 2, z: 0 },
+                yaw: this.localPlayer ? this.localPlayer.yaw : 0,
+                senderSessionId: this.sessionId,
+                packetId: 'pkt_' + Math.random().toString(36).substring(2, 9)
+              };
+              hostConn.send(joinPacket);
+              if (window.showGameNotification) {
+                window.showGameNotification(`🌐 Connected to Online Host for Room ${this.currentRoom}!`);
+              }
+            });
+
+            hostConn.on('data', (data) => {
+              this.handleNetworkMessage(data);
+            });
+
+            hostConn.on('close', () => {
+              this.peerConnections.delete(hostPeerId);
+            });
+            hostConn.on('error', () => {
+              this.peerConnections.delete(hostPeerId);
+            });
+          });
+
+          this.peer.on('error', (err) => {
+            console.warn('PeerJS Client Notice:', err);
+          });
+        } catch (e) {
+          console.warn('PeerJS client error:', e);
+        }
+      }
     };
+
+    if (window.Peer) {
+      initPeer();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+      script.onload = () => initPeer();
+      document.head.appendChild(script);
+    }
   }
 
   broadcast(packet) {
+    const packetId = packet.packetId || ('pkt_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36));
+    const fullPacket = {
+      ...packet,
+      packetId,
+      senderId: accountSystem.getProfile().id,
+      senderSessionId: this.sessionId,
+      timestamp: Date.now()
+    };
+
+    // 1. BroadcastChannel (local tabs / windows)
     if (this.channel) {
-      this.channel.postMessage({
-        ...packet,
-        senderId: accountSystem.getProfile().id,
-        timestamp: Date.now()
-      });
+      try {
+        this.channel.postMessage(fullPacket);
+      } catch (e) {}
     }
+
+    // 2. WebRTC Peer Connections (internet / cross-device)
+    this.peerConnections.forEach((conn) => {
+      if (conn && conn.open) {
+        try {
+          conn.send(fullPacket);
+        } catch (e) {}
+      }
+    });
   }
 
   // Network Packet Dispatcher
   handleNetworkMessage(data) {
-    if (!data || data.senderId === accountSystem.getProfile().id) return;
+    if (!data || data.senderSessionId === this.sessionId) return;
+
+    // Deduplicate packets
+    if (data.packetId) {
+      if (this.seenPackets.has(data.packetId)) return;
+      this.seenPackets.add(data.packetId);
+      if (this.seenPackets.size > 250) {
+        const iter = this.seenPackets.values();
+        for (let i = 0; i < 60; i++) this.seenPackets.delete(iter.next().value);
+      }
+    }
+
+    const playerKey = data.senderSessionId || data.id;
 
     switch (data.type) {
       case 'PLAYER_JOIN': {
-        this.addRemotePlayer(data);
+        this.addRemotePlayer(data, playerKey);
         // Respond with our state so newcomer knows we are here
         const profile = accountSystem.getProfile();
         this.broadcast({
@@ -133,7 +324,7 @@ export class MultiplayerManager {
           friendCode: profile.friendCode,
           config: profile.customEvermean,
           stage: this.localPlayer ? this.localPlayer.growthStage : 1,
-          position: this.localPlayer ? this.localPlayer.position : { x: 0, y: 2, z: 0 },
+          position: this.localPlayer ? { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z } : { x: 0, y: 2, z: 0 },
           yaw: this.localPlayer ? this.localPlayer.yaw : 0,
           hp: this.localPlayer ? this.localPlayer.barkHp : 100,
           roomMode: this.roomMode
@@ -145,10 +336,10 @@ export class MultiplayerManager {
       }
 
       case 'PLAYER_HEARTBEAT': {
-        if (!this.remotePlayers.has(data.id)) {
-          this.addRemotePlayer(data);
+        if (!this.remotePlayers.has(playerKey)) {
+          this.addRemotePlayer(data, playerKey);
         } else {
-          this.updateRemotePlayerState(data);
+          this.updateRemotePlayerState(data, playerKey);
         }
         if (data.roomMode && !this.isHost) {
           this.roomMode = data.roomMode;
@@ -157,7 +348,7 @@ export class MultiplayerManager {
       }
 
       case 'PLAYER_STATE': {
-        this.updateRemotePlayerState(data);
+        this.updateRemotePlayerState(data, playerKey);
         break;
       }
 
@@ -167,7 +358,7 @@ export class MultiplayerManager {
       }
 
       case 'PVP_HIT': {
-        if (data.targetId === accountSystem.getProfile().id && this.localPlayer) {
+        if ((data.targetSessionId === this.sessionId || data.targetId === accountSystem.getProfile().id) && this.localPlayer) {
           this.localPlayer.takeDamage(data.damage, data.attackerName || 'Arena Rival');
           if (this.localPlayer.barkHp <= 0) {
             this.arenaScores.remoteWins++;
@@ -200,53 +391,89 @@ export class MultiplayerManager {
       }
 
       case 'CHAT_MSG': {
-        this.displaySpeechBubble(data.id, data.text);
+        this.displaySpeechBubble(playerKey, data.text);
         this.onChatCallbacks.forEach((cb) => cb(data.username, data.text, data.friendCode));
         break;
       }
 
       case 'PLAYER_LEAVE': {
-        this.removeRemotePlayer(data.id);
+        this.removeRemotePlayer(playerKey);
         break;
       }
     }
   }
 
   // Create 3D Remote Evermean Avatar
-  addRemotePlayer(data) {
-    if (this.remotePlayers.has(data.id)) return;
+  addRemotePlayer(data, key = null) {
+    const playerKey = key || data.senderSessionId || data.id;
+    if (this.remotePlayers.has(playerKey)) {
+      this.updateRemotePlayerState(data, playerKey);
+      return;
+    }
+
+    // Clean up any stale/duplicate session for this player ID
+    if (data.id) {
+      for (const [k, v] of this.remotePlayers.entries()) {
+        if (v.id === data.id && k !== playerKey) {
+          if (v.model && this.scene) this.scene.remove(v.model);
+          this.remotePlayers.delete(k);
+        }
+      }
+    }
+
+    let displayName = data.username || 'Evermean';
+    if (data.id === accountSystem.getProfile().id && data.senderSessionId !== this.sessionId) {
+      displayName += ' (Visitor)';
+    }
 
     const model = TreeModelGenerator.createEvermeanModel(data.config || {}, data.stage || 1);
-    if (data.position) model.position.copy(data.position);
+    const posX = data.position?.x || 0;
+    const posZ = data.position?.z || 0;
+    const posY = data.position?.y !== undefined ? data.position.y : (this.terrain ? this.terrain.getHeight(posX, posZ) : 1);
+    model.position.set(posX, posY, posZ);
+    if (data.yaw !== undefined) model.rotation.y = data.yaw;
+
     if (this.scene) this.scene.add(model);
 
     // Create 3D Nameplate Sprite above player head
-    const nameplate = this.createNameplate(data.username || 'Evermean', data.friendCode || '');
+    const nameplate = this.createNameplate(displayName, data.friendCode || '');
     nameplate.position.y = 3.2 * (data.config?.heightScale || 1.0);
     model.add(nameplate);
 
     const remoteObj = {
       id: data.id,
-      username: data.username,
+      playerKey,
+      username: displayName,
       friendCode: data.friendCode,
       config: data.config,
       model,
       nameplate,
-      targetPos: new THREE.Vector3().copy(data.position || { x: 0, y: 0, z: 0 }),
+      targetPos: new THREE.Vector3(posX, posY, posZ),
       targetYaw: data.yaw || 0,
       hp: data.hp || 100,
       maxHp: 100,
-      speechBubble: null
+      speechBubble: null,
+      lastSeen: Date.now()
     };
 
-    this.remotePlayers.set(data.id, remoteObj);
+    this.remotePlayers.set(playerKey, remoteObj);
   }
 
   // Update remote player coordinates
-  updateRemotePlayerState(data) {
-    const remote = this.remotePlayers.get(data.id);
+  updateRemotePlayerState(data, key = null) {
+    const playerKey = key || data.senderSessionId || data.id;
+    let remote = this.remotePlayers.get(playerKey);
+    if (!remote && data.id) {
+      for (const v of this.remotePlayers.values()) {
+        if (v.id === data.id) {
+          remote = v;
+          break;
+        }
+      }
+    }
     if (!remote) return;
 
+    remote.lastSeen = Date.now();
     if (data.position) remote.targetPos.set(data.position.x, data.position.y, data.position.z);
     if (data.yaw !== undefined) remote.targetYaw = data.yaw;
     if (data.hp !== undefined) remote.hp = data.hp;
@@ -258,21 +485,46 @@ export class MultiplayerManager {
 
   // Remote head-slam or special attack
   handleRemoteAttack(data) {
-    const remote = this.remotePlayers.get(data.id);
-    if (!remote) return;
+    const playerKey = data.senderSessionId || data.id;
+    let remote = this.remotePlayers.get(playerKey);
+    if (!remote && data.id) {
+      for (const v of this.remotePlayers.values()) {
+        if (v.id === data.id) {
+          remote = v;
+          break;
+        }
+      }
+    }
 
     if (this.engine) {
-      const slamPoint = new THREE.Vector3().copy(data.position);
+      const slamPoint = new THREE.Vector3();
+      if (data.position) {
+        slamPoint.set(data.position.x, data.position.y, data.position.z);
+      } else if (remote) {
+        slamPoint.copy(remote.targetPos);
+      } else {
+        return;
+      }
       this.engine.spawnShockwave(slamPoint, 2.5, data.glowColor || 0xca8a04);
       this.engine.spawnParticles(slamPoint, 20, 0x8b5a2b, 4, 0.15);
     }
   }
 
-  removeRemotePlayer(id) {
-    const remote = this.remotePlayers.get(id);
+  removeRemotePlayer(key) {
+    let remote = this.remotePlayers.get(key);
+    let targetKey = key;
+    if (!remote) {
+      for (const [k, v] of this.remotePlayers.entries()) {
+        if (v.id === key || v.playerKey === key) {
+          remote = v;
+          targetKey = k;
+          break;
+        }
+      }
+    }
     if (remote) {
       if (remote.model && this.scene) this.scene.remove(remote.model);
-      this.remotePlayers.delete(id);
+      this.remotePlayers.delete(targetKey);
       if (window.showGameNotification) {
         window.showGameNotification(`🍂 ${remote.username} left the grove.`);
       }
@@ -311,7 +563,15 @@ export class MultiplayerManager {
 
   // Display 3D Speech Bubble above remote Evermean
   displaySpeechBubble(playerId, text) {
-    const remote = this.remotePlayers.get(playerId);
+    let remote = this.remotePlayers.get(playerId);
+    if (!remote) {
+      for (const v of this.remotePlayers.values()) {
+        if (v.id === playerId || v.playerKey === playerId) {
+          remote = v;
+          break;
+        }
+      }
+    }
     if (!remote || !remote.model) return;
 
     if (remote.speechBubble) remote.model.remove(remote.speechBubble);
@@ -373,6 +633,7 @@ export class MultiplayerManager {
         this.broadcast({
           type: 'PVP_HIT',
           targetId: remote.id,
+          targetSessionId: remote.playerKey,
           attackerId: accountSystem.getProfile().id,
           attackerName: accountSystem.getProfile().username,
           damage
@@ -408,18 +669,18 @@ export class MultiplayerManager {
 
     // 1. Broadcast local player state periodically (20 times per sec)
     this.syncTimer += delta;
-    if (this.syncTimer > 0.05 && this.localPlayer) {
+    if (this.syncTimer > 0.05 && this.localPlayer && this.localPlayer.position) {
       this.syncTimer = 0;
       this.broadcast({
         type: 'PLAYER_STATE',
         id: accountSystem.getProfile().id,
         position: { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z },
-        yaw: this.localPlayer.yaw,
-        pitch: this.localPlayer.pitch,
-        isAttacking: this.localPlayer.isAttacking,
-        isDisguised: this.localPlayer.isDisguised,
-        isBurrowed: this.localPlayer.isRootBurrowed,
-        hp: this.localPlayer.barkHp
+        yaw: this.localPlayer.yaw || 0,
+        pitch: this.localPlayer.pitch || 0,
+        isAttacking: !!this.localPlayer.isAttacking,
+        isDisguised: !!this.localPlayer.isDisguised,
+        isBurrowed: !!this.localPlayer.isRootBurrowed,
+        hp: this.localPlayer.barkHp || 100
       });
     }
 
@@ -436,6 +697,14 @@ export class MultiplayerManager {
             leg.rotation.x = isMoving ? Math.sin(Date.now() * 0.015 + idx) * 0.4 : 0;
           });
         }
+      }
+    });
+
+    // 3. Prune disconnected / timed-out players after 15 seconds of silence
+    const now = Date.now();
+    this.remotePlayers.forEach((remote, key) => {
+      if (remote.lastSeen && (now - remote.lastSeen > 15000)) {
+        this.removeRemotePlayer(key);
       }
     });
   }

@@ -13,6 +13,8 @@ export class Environment {
     this.fireflyPositions = [];
     this.campfireLight = null;
     this.grassMesh = null;
+    this.zonaiPads = [];
+    this.gloomPuddles = [];
     this.goblinCampCenter = new THREE.Vector3(65, 0, -40);
     this.beaverVillageCenter = new THREE.Vector3(-28, 0, 25);
   }
@@ -57,6 +59,14 @@ export class Environment {
 
     // 12. Floating Forest Fireflies
     this.spawnFireflies(120);
+
+    // 13. Zelda: Tears of the Kingdom Legendary Flora & Zonai Devices
+    this.spawnSundelions(16);
+    this.spawnSilentPrincesses(8);
+    this.spawnBombFlowers(12);
+    this.spawnPoes(18);
+    this.spawnZonaiBoostPads();
+    this.spawnGloomPuddles();
   }
 
   // Ordinary forest trees that the player blends into
@@ -750,6 +760,279 @@ export class Environment {
     this.scene.add(this.fireflies);
   }
 
+  // 13. Golden Sundelions (TOTK: cures Gloom fatigue & heals bark)
+  spawnSundelions(count = 16) {
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0x4d7c0f, roughness: 0.8 });
+    const petalMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      emissive: 0xeab308,
+      emissiveIntensity: 0.4,
+      roughness: 0.3
+    });
+    const centerMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7 });
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 50);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 50);
+      if (this.terrain.isWater(x, z)) continue;
+
+      const y = this.terrain.getHeight(x, z);
+      if (y < 1.0) continue; // Only sunny hills & knolls
+
+      const flower = new THREE.Group();
+      flower.position.set(x, y + 0.1, z);
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.5, 5), stemMat);
+      stem.position.y = 0.25;
+      flower.add(stem);
+
+      const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 8), centerMat);
+      disk.position.y = 0.5;
+      flower.add(disk);
+
+      for (let p = 0; p < 8; p++) {
+        const petal = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 4), petalMat);
+        const angle = (p / 8) * Math.PI * 2;
+        petal.position.set(Math.cos(angle) * 0.16, 0.5, Math.sin(angle) * 0.16);
+        petal.rotation.y = angle;
+        petal.rotation.z = Math.PI / 2;
+        flower.add(petal);
+      }
+
+      flower.userData = {
+        type: 'sundelion',
+        name: 'Golden Sundelion',
+        hpGain: 40,
+        moistureGain: 30,
+        sundelionGain: 1
+      };
+
+      this.scene.add(flower);
+      this.pickups.push(flower);
+    }
+  }
+
+  // 14. Silent Princess (Rare Sacred Flower of Hyrule)
+  spawnSilentPrincesses(count = 8) {
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 });
+    const petalMat = new THREE.MeshStandardMaterial({
+      color: 0xbae6fd,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 0.7,
+      transparent: true,
+      opacity: 0.9,
+      roughness: 0.2
+    });
+    const stamenMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 6 + Math.random() * 22;
+      const x = Math.cos(angle) * dist;
+      const z = Math.sin(angle) * dist;
+      if (this.terrain.isWater(x, z)) continue;
+
+      const y = this.terrain.getHeight(x, z);
+      const flower = new THREE.Group();
+      flower.position.set(x, y + 0.1, z);
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.65, 5), stemMat);
+      stem.position.y = 0.32;
+      stem.rotation.z = 0.1;
+      flower.add(stem);
+
+      for (let p = 0; p < 5; p++) {
+        const petal = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.28, 4), petalMat);
+        const pAngle = (p / 5) * Math.PI * 2;
+        petal.position.set(Math.cos(pAngle) * 0.1, 0.65, Math.sin(pAngle) * 0.1);
+        petal.rotation.x = -0.35;
+        petal.rotation.y = pAngle;
+        flower.add(petal);
+      }
+
+      const stamen = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), stamenMat);
+      stamen.position.set(0, 0.62, 0);
+      flower.add(stamen);
+
+      flower.userData = {
+        type: 'silent_princess',
+        name: 'Silent Princess',
+        photosynthesisGain: 100,
+        biomassGain: 50
+      };
+
+      this.scene.add(flower);
+      this.pickups.push(flower);
+    }
+  }
+
+  // 15. Bomb Flowers (TOTK explosive flora)
+  spawnBombFlowers(count = 12) {
+    const bulbMat = new THREE.MeshStandardMaterial({
+      color: 0xea580c,
+      emissive: 0x9a3412,
+      emissiveIntensity: 0.5,
+      roughness: 0.4
+    });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.7 });
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 60);
+      if (this.terrain.isWater(x, z)) continue;
+
+      const y = this.terrain.getHeight(x, z);
+      const bomb = new THREE.Group();
+      bomb.position.set(x, y + 0.2, z);
+
+      const bulb = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 1), bulbMat);
+      bulb.position.y = 0.24;
+      bulb.scale.set(1, 1.1, 1);
+      bomb.add(bulb);
+
+      for (let l = 0; l < 4; l++) {
+        const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.1), leafMat);
+        const lAngle = (l / 4) * Math.PI * 2;
+        leaf.position.set(Math.cos(lAngle) * 0.12, 0.45, Math.sin(lAngle) * 0.12);
+        leaf.rotation.y = lAngle;
+        leaf.rotation.x = 0.4;
+        bomb.add(leaf);
+      }
+
+      bomb.userData = {
+        type: 'bomb_flower',
+        name: 'Bomb Flower',
+        ammoGain: 3,
+        biomassGain: 20
+      };
+
+      this.scene.add(bomb);
+      this.pickups.push(bomb);
+    }
+  }
+
+  // 16. Drifting Poe Spirits (TOTK luminous souls)
+  spawnPoes(count = 18) {
+    const poeMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.9,
+      transparent: true,
+      opacity: 0.75,
+      roughness: 0.1
+    });
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 50);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 50);
+      const y = Math.max(0.6, this.terrain.getHeight(x, z)) + 0.5 + Math.random() * 0.8;
+
+      const poe = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 1), poeMat);
+      poe.position.set(x, y, z);
+      poe.userData = {
+        type: 'poe',
+        name: 'Poe Spirit',
+        stardustGain: 1,
+        biomassGain: 15,
+        baseY: y,
+        floatOffset: Math.random() * Math.PI * 2
+      };
+
+      this.scene.add(poe);
+      this.pickups.push(poe);
+    }
+  }
+
+  // 17. Ancient Zonai Boost Pads (Sky launch catapults)
+  spawnZonaiBoostPads() {
+    const padLocations = [
+      [18, 12],
+      [-45, -30],
+      [55, 35]
+    ];
+
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.7, roughness: 0.3 });
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0x34d399,
+      emissive: 0x10b981,
+      emissiveIntensity: 0.95,
+      roughness: 0.2
+    });
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0x6ee7b7,
+      transparent: true,
+      opacity: 0.45,
+      side: THREE.DoubleSide
+    });
+
+    padLocations.forEach(loc => {
+      const x = loc[0];
+      const z = loc[1];
+      const y = this.terrain.getHeight(x, z);
+
+      const padGroup = new THREE.Group();
+      padGroup.position.set(x, y + 0.08, z);
+
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.2, 16), baseMat);
+      base.receiveShadow = true;
+      padGroup.add(base);
+
+      const glyphRing = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 24), ringMat);
+      glyphRing.rotation.x = Math.PI / 2;
+      glyphRing.position.y = 0.12;
+      padGroup.add(glyphRing);
+
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 8), ringMat);
+      core.position.y = 0.12;
+      padGroup.add(core);
+
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.2, 2.5, 12, 1, true), beamMat);
+      beam.position.y = 1.35;
+      padGroup.add(beam);
+
+      padGroup.userData = {
+        isZonaiPad: true,
+        glyphRing,
+        beam
+      };
+
+      this.scene.add(padGroup);
+      this.zonaiPads.push(padGroup);
+    });
+  }
+
+  // 18. Corrupted Gloom / Malice Pools
+  spawnGloomPuddles() {
+    const gloomMat = new THREE.MeshStandardMaterial({
+      color: 0x881337,
+      emissive: 0x4c0519,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.75,
+      roughness: 0.5
+    });
+
+    const locations = [
+      [-40, -70, 5.0],
+      [68, -25, 4.2]
+    ];
+
+    locations.forEach(loc => {
+      const x = loc[0];
+      const z = loc[1];
+      const radius = loc[2];
+      const y = this.terrain.getHeight(x, z);
+
+      const gloom = new THREE.Mesh(new THREE.CircleGeometry(radius, 16), gloomMat);
+      gloom.position.set(x, y + 0.04, z);
+      gloom.rotation.x = -Math.PI / 2;
+      gloom.userData = { radius };
+
+      this.scene.add(gloom);
+      this.gloomPuddles.push(gloom);
+    });
+  }
+
   update(delta, time) {
     // Spin beaver village waterwheel
     if (this.beaverVillageGroup && this.beaverVillageGroup.userData.wheel) {
@@ -784,10 +1067,25 @@ export class Environment {
       posAttr.needsUpdate = true;
     }
 
-    // Gentle floating bob on pickups
+    // Gentle floating bob & rotation on pickups (Sundelions, Poes, etc.)
     this.pickups.forEach((p, idx) => {
       p.rotation.y += delta * 1.5;
-      p.position.y += Math.sin(time * 3 + idx) * 0.001;
+      if (p.userData && p.userData.type === 'poe') {
+        p.position.y = p.userData.baseY + Math.sin(time * 3 + (p.userData.floatOffset || 0)) * 0.25;
+      } else {
+        p.position.y += Math.sin(time * 3 + idx) * 0.001;
+      }
+    });
+
+    // Zonai Boost Pad animations
+    this.zonaiPads.forEach((pad, idx) => {
+      const u = pad.userData;
+      if (u.glyphRing) {
+        u.glyphRing.rotation.z += delta * 1.2;
+      }
+      if (u.beam) {
+        u.beam.material.opacity = 0.35 + Math.sin(time * 6 + idx) * 0.18;
+      }
     });
   }
 }

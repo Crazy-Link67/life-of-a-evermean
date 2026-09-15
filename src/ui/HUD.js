@@ -296,6 +296,12 @@ export class HUD {
       <div id="standard-top-banner" class="top-center-banner">
         <div id="day-counter" class="day-title">DAY 1 - MORNING</div>
         <div id="growth-stage-title" class="stage-subtitle">🌱 Baby Sprout Evermean</div>
+        <!-- Active Room Pill Indicator -->
+        <div id="hud-room-indicator" style="display: none; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.85); border: 1.5px solid #0284c7; border-radius: 9999px; padding: 5px 14px; font-size: 11px; font-weight: 700; color: #e0f2fe; backdrop-filter: blur(8px); cursor: pointer; pointer-events: auto; margin-top: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);" title="Click to copy Room Code & Invite Link!">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 10px #38bdf8;"></span>
+          <span>World Room: <strong id="hud-room-code-text" style="color: #38bdf8; font-family: monospace; font-size: 12px; letter-spacing: 0.8px;">GROVE-XX</strong></span>
+          <span id="hud-room-copy-badge" style="background: rgba(56, 189, 248, 0.25); border: 1px solid #38bdf8; border-radius: 4px; padding: 2px 7px; font-size: 10px; color: #7dd3fc; font-weight: 800;">📋 Copy</span>
+        </div>
       </div>
 
       <!-- Arena PvP Duel Banner -->
@@ -307,11 +313,15 @@ export class HUD {
 
       <!-- Top Right: Resources & Quick Online Buttons -->
       <div style="position: absolute; top: 18px; right: 20px; display: flex; gap: 8px; align-items: center; pointer-events: auto;">
-        <div class="resource-panel" style="position: static;">
+        <div class="resource-panel" style="position: static; display: flex; flex-wrap: wrap; max-width: 320px; gap: 6px 12px;">
           <div class="resource-item">🪵 <span id="res-wood">20</span> Wood</div>
           <div class="resource-item">🌰 <span id="res-acorns">5</span> Acorns</div>
           <div class="resource-item">🍃 <span id="res-korok">0</span> Seeds</div>
           <div class="resource-item">✨ <span id="res-stardust">0</span> Stardust</div>
+          <div class="resource-item" id="res-item-rupees" style="color: #67e8f9;">💎 <span id="res-rupees">0</span> Rupees</div>
+          <div class="resource-item" id="res-item-jelly" style="color: #a7f3d0;">🧪 <span id="res-jelly">0</span> Jelly</div>
+          <div class="resource-item" id="res-item-bubbul" style="color: #c084fc;">🔮 <span id="res-bubbul">0</span> Bubbul</div>
+          <div class="resource-item" id="res-item-sundelion" style="color: #fde047;">🌼 <span id="res-sundelion">0</span> Sun</div>
         </div>
         <button id="btn-hud-mp" style="background: rgba(8, 51, 68, 0.85); border: 1px solid #06b6d4; color: #67e8f9; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">🌐 Online</button>
         <button id="btn-hud-acc" style="background: rgba(14, 41, 30, 0.85); border: 1px solid #10b981; color: #6ee7b7; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">🌿 Friends</button>
@@ -334,10 +344,18 @@ export class HUD {
           <span>🛠️ CREATOR TOOLBOX</span>
           <button id="btn-hud-flight" style="background: #be185d; border: 1px solid #f472b6; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-weight: 700;">🕊️ Flight: OFF (F)</button>
         </div>
-        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; max-width: 380px;">
           <button class="btn-creator-spawn" data-type="sprout_minion" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🌱 Sprout</button>
           <button class="btn-creator-spawn" data-type="deer" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦌 Deer</button>
           <button class="btn-creator-spawn" data-type="beaver" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦫 Beaver</button>
+          <button class="btn-creator-spawn" data-type="fox" style="background: #27272a; border: 1px solid #d97706; color: #fde68a; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦊 Fox</button>
+          <button class="btn-creator-spawn" data-type="blupee" style="background: #27272a; border: 1px solid #0284c7; color: #7dd3fc; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🐰 Blupee</button>
+          <button class="btn-creator-spawn" data-type="chuchu" style="background: #27272a; border: 1px solid #16a34a; color: #86efac; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">💧 Chuchu</button>
+          <button class="btn-creator-spawn" data-type="bubbulfrog" style="background: #27272a; border: 1px solid #9333ea; color: #d8b4fe; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🐸 Bubbul</button>
+          <button class="btn-creator-spawn" data-type="cucco" style="background: #27272a; border: 1px solid #dc2626; color: #fca5a5; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🐔 Cucco</button>
+          <button class="btn-creator-spawn" data-type="aerocuda" style="background: #27272a; border: 1px solid #475569; color: #cbd5e1; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦇 Aerocuda</button>
+          <button class="btn-creator-spawn" data-type="dondon" style="background: #27272a; border: 1px solid #0891b2; color: #a5f3fc; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🦏 Dondon</button>
+          <button class="btn-creator-spawn" data-type="zonai_pad" style="background: #0f766e; border: 1px solid #34d399; color: #a7f3d0; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-weight: 700;">🚀 Zonai Pad</button>
           <button class="btn-creator-spawn" data-type="goblin_spar" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">👹 Goblin</button>
           <button class="btn-creator-spawn" data-type="shrooms" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🍄 Mushroom</button>
           <button class="btn-creator-spawn" data-type="ancient_monolith" style="background: #27272a; border: 1px solid #71717a; color: #e4e4e7; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;">🗿 Monolith</button>
@@ -467,6 +485,33 @@ export class HUD {
         creatorMode.spawnProp(btn.dataset.type);
       });
     });
+
+    // Click on Room Indicator Pill to copy Room Code & Direct Invite Link
+    const roomPill = document.getElementById('hud-room-indicator');
+    if (roomPill) {
+      roomPill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const code = multiplayer.currentRoom;
+        if (!code) return;
+        const url = new URL(window.location.href);
+        url.hash = `room=${code}`;
+        navigator.clipboard.writeText(url.href).then(() => {
+          const badge = document.getElementById('hud-room-copy-badge');
+          if (badge) {
+            badge.textContent = '✅ Copied!';
+            setTimeout(() => (badge.textContent = '📋 Copy'), 2000);
+          }
+          if (window.showGameNotification) {
+            window.showGameNotification(`🔗 Copied direct invite link for Room ${code}!`);
+          }
+        }).catch(() => {
+          navigator.clipboard.writeText(code);
+          if (window.showGameNotification) {
+            window.showGameNotification(`📋 Copied Room Code ${code}!`);
+          }
+        });
+      });
+    }
   }
 
   show() {
@@ -539,11 +584,31 @@ export class HUD {
       }
     }
 
-    // 3. Resources
+    // Active Room Indicator Pill State
+    const roomIndicator = document.getElementById('hud-room-indicator');
+    if (roomIndicator) {
+      if (multiplayer && multiplayer.currentRoom) {
+        roomIndicator.style.display = 'flex';
+        const codeText = document.getElementById('hud-room-code-text');
+        if (codeText) codeText.textContent = multiplayer.currentRoom;
+      } else {
+        roomIndicator.style.display = 'none';
+      }
+    }
+
+    // 3. Resources (Wood, Acorns, Korok Seeds, Stardust, Rupees, Jelly, Bubbul Gems, Sundelions)
     document.getElementById('res-wood').textContent = player.inventory.wood;
     document.getElementById('res-acorns').textContent = player.inventory.acorns;
     document.getElementById('res-korok').textContent = player.inventory.korokSeeds || 0;
     document.getElementById('res-stardust').textContent = player.inventory.stardust;
+    const resRupees = document.getElementById('res-rupees');
+    if (resRupees) resRupees.textContent = player.inventory.rupees || 0;
+    const resJelly = document.getElementById('res-jelly');
+    if (resJelly) resJelly.textContent = player.inventory.chuchuJelly || 0;
+    const resBubbul = document.getElementById('res-bubbul');
+    if (resBubbul) resBubbul.textContent = player.inventory.bubbulGems || 0;
+    const resSun = document.getElementById('res-sundelion');
+    if (resSun) resSun.textContent = player.inventory.sundelions || 0;
 
     // 4. Badges
     document.getElementById('disguise-badge').style.display = player.isDisguised ? 'block' : 'none';

@@ -52,9 +52,18 @@ class Game {
     buildMenu.init(player, engine);
     accountModal.init();
     multiplayerLobby.init();
+    multiplayerLobby.onEnterGame(() => {
+      mainMenu.hide();
+      if (!this.isGameRunning) {
+        const savedConfig = accountSystem.getProfile()?.customEvermean;
+        this.startNewGameWithConfig(savedConfig || {});
+      } else {
+        input.requestPointerLock();
+      }
+    });
 
     // 4. Initialize Core Expansion Systems
-    creatorMode.init(engine.scene, terrain, player, villagers, dayNight, colony);
+    creatorMode.init(engine.scene, terrain, player, villagers, dayNight, colony, environment);
     arena.init(engine.scene, terrain, player, engine);
     multiplayer.init(engine.scene, terrain, engine, player);
 

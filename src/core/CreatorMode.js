@@ -12,16 +12,18 @@ export class CreatorMode {
     this.villagers = null;
     this.dayNight = null;
     this.colony = null;
+    this.environment = null;
     this.onStateChangeCallbacks = [];
   }
 
-  init(scene, terrain, player, villagers, dayNight, colony) {
+  init(scene, terrain, player, villagers, dayNight, colony, environment = null) {
     this.scene = scene;
     this.terrain = terrain;
     this.player = player;
     this.villagers = villagers;
     this.dayNight = dayNight;
     this.colony = colony;
+    this.environment = environment;
   }
 
   enable() {
@@ -31,6 +33,10 @@ export class CreatorMode {
       this.player.inventory.acorns = 9999;
       this.player.inventory.stardust = 9999;
       this.player.inventory.korokSeeds = 999;
+      this.player.inventory.rupees = 9999;
+      this.player.inventory.chuchuJelly = 999;
+      this.player.inventory.bubbulGems = 999;
+      this.player.inventory.sundelions = 999;
       this.player.soilBiomass = 9999;
       this.player.moisture = 100;
       this.player.photosynthesis = 100;
@@ -123,6 +129,104 @@ export class CreatorMode {
         mono.position.set(spawnPos.x, spawnPos.y + 2.1, spawnPos.z);
         this.scene.add(mono);
         if (window.showGameNotification) window.showGameNotification('🗿 Spawned Ancient Stone Monolith!');
+        break;
+      }
+      case 'blupee': {
+        if (this.villagers) {
+          this.villagers.spawnBlupee(spawnPos.x, spawnPos.z);
+          if (window.showGameNotification) window.showGameNotification('🐰 Spawned Mythical Glowing Blupee!');
+        }
+        break;
+      }
+      case 'chuchu': {
+        if (this.villagers) {
+          const type = ['grass', 'fire', 'electric', 'frost'][Math.floor(Math.random() * 4)];
+          this.villagers.spawnChuchu(spawnPos.x, spawnPos.z, type);
+          if (window.showGameNotification) window.showGameNotification(`💧 Spawned ${type.toUpperCase()} Chuchu!`);
+        }
+        break;
+      }
+      case 'bubbulfrog': {
+        if (this.villagers) {
+          this.villagers.spawnBubbulfrog(spawnPos.x, spawnPos.z);
+          if (window.showGameNotification) window.showGameNotification('🐸 Spawned Cave Spirit Bubbulfrog!');
+        }
+        break;
+      }
+      case 'cucco': {
+        if (this.villagers) {
+          this.villagers.spawnCucco(spawnPos.x, spawnPos.z);
+          if (window.showGameNotification) window.showGameNotification('🐔 Spawned Hyrule Cucco! (Do not provoke!)');
+        }
+        break;
+      }
+      case 'aerocuda': {
+        if (this.villagers) {
+          this.villagers.spawnAerocuda(spawnPos.x, spawnPos.z, spawnPos.y + 14);
+          if (window.showGameNotification) window.showGameNotification('🦇 Spawned Winged Aerocuda!');
+        }
+        break;
+      }
+      case 'dondon': {
+        if (this.villagers) {
+          this.villagers.spawnDondon(spawnPos.x, spawnPos.z);
+          if (window.showGameNotification) window.showGameNotification('🦏 Spawned Luminous Ore Dondon!');
+        }
+        break;
+      }
+      case 'fox': {
+        if (this.villagers) {
+          this.villagers.spawnFox(spawnPos.x, spawnPos.z);
+          if (window.showGameNotification) window.showGameNotification('🦊 Spawned Woodland Grassland Fox!');
+        }
+        break;
+      }
+      case 'zonai_pad': {
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.7, roughness: 0.3 });
+        const ringMat = new THREE.MeshStandardMaterial({
+          color: 0x34d399,
+          emissive: 0x10b981,
+          emissiveIntensity: 0.95,
+          roughness: 0.2
+        });
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: 0x6ee7b7,
+          transparent: true,
+          opacity: 0.45,
+          side: THREE.DoubleSide
+        });
+
+        const padGroup = new THREE.Group();
+        padGroup.position.set(spawnPos.x, spawnPos.y + 0.08, spawnPos.z);
+
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.2, 16), baseMat);
+        base.receiveShadow = true;
+        padGroup.add(base);
+
+        const glyphRing = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 24), ringMat);
+        glyphRing.rotation.x = Math.PI / 2;
+        glyphRing.position.y = 0.12;
+        padGroup.add(glyphRing);
+
+        const core = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 8), ringMat);
+        core.position.y = 0.12;
+        padGroup.add(core);
+
+        const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.2, 2.5, 12, 1, true), beamMat);
+        beam.position.y = 1.35;
+        padGroup.add(beam);
+
+        padGroup.userData = {
+          isZonaiPad: true,
+          glyphRing,
+          beam
+        };
+
+        this.scene.add(padGroup);
+        if (this.environment && this.environment.zonaiPads) {
+          this.environment.zonaiPads.push(padGroup);
+        }
+        if (window.showGameNotification) window.showGameNotification('🚀 Spawned Ancient Zonai Boost Pad!');
         break;
       }
     }

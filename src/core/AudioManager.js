@@ -353,6 +353,121 @@ export class AudioManager {
     });
   }
 
+  // Cucco cluck sound
+  playCuccoCluck() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(550, t);
+    osc.frequency.exponentialRampToValueAtTime(800, t + 0.06);
+    osc.frequency.exponentialRampToValueAtTime(450, t + 0.15);
+
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.18);
+  }
+
+  // Cucco flock revenge attack screech
+  playCuccoFlock() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      const f = 600 + i * 150 + Math.random() * 100;
+      osc.frequency.setValueAtTime(f, t + i * 0.05);
+      osc.frequency.linearRampToValueAtTime(f + 300, t + i * 0.05 + 0.1);
+      gain.gain.setValueAtTime(0.15, t + i * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.05 + 0.2);
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + i * 0.05);
+      osc.stop(t + i * 0.05 + 0.22);
+    }
+  }
+
+  // Blupee celestial bell chime & rupee sparkles
+  playBlupeeChime() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    [1046.5, 1318.5, 1567.98, 2093.0].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.05);
+      gain.gain.setValueAtTime(0.18, t + idx * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.05 + 0.35);
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + idx * 0.05);
+      osc.stop(t + idx * 0.05 + 0.4);
+    });
+  }
+
+  // Chuchu squish & pop
+  playChuchuSquish() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(280, t);
+    osc.frequency.exponentialRampToValueAtTime(140, t + 0.12);
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.15);
+  }
+
+  // Bubbulfrog divine bubble pop chime
+  playBubbulfrogChime() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    [440, 659.25, 880, 1174.66].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.06);
+      gain.gain.setValueAtTime(0.2, t + idx * 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.06 + 0.5);
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + idx * 0.06);
+      osc.stop(t + idx * 0.06 + 0.55);
+    });
+  }
+
+  // Zonai rocket / fan high-energy burst
+  playZonaiBoost() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.exponentialRampToValueAtTime(650, t + 0.35);
+    gain.gain.setValueAtTime(0.35, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.65);
+  }
+
   // Ambient Forest & Wind procedural soundscape
   startAmbientSoundscape() {
     if (!this.ctx) return;

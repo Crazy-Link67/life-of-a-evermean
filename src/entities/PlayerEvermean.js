@@ -31,7 +31,11 @@ export class PlayerEvermean {
       wood: 20,
       acorns: 5,
       stardust: 0,
-      korokSeeds: 0
+      korokSeeds: 0,
+      rupees: 0,
+      chuchuJelly: 0,
+      bubbulGems: 0,
+      sundelions: 0
     };
 
     // States
@@ -154,8 +158,9 @@ export class PlayerEvermean {
     }
 
     // 1. Check hitting Woodcutter Goblins
+    const slamRadius = 3.8 * (this.speciesConfig.slamRadiusMult || 1.0);
     villagers.goblins.forEach(goblin => {
-      if (goblin.position.distanceTo(slamPoint) < 3.8 * (this.speciesConfig.slamRadiusMult || 1.0)) {
+      if (goblin.position.distanceTo(slamPoint) < slamRadius) {
         const res = villagers.damageGoblin(goblin, baseDamage, this.engine, audio, isSneakStrike);
         if (res.defeated) {
           this.inventory.wood += res.woodReward;
@@ -164,6 +169,52 @@ export class PlayerEvermean {
         }
       }
     });
+
+    // Check hitting Zelda TOTK Creatures with Head-Slam
+    if (villagers.chuchus) {
+      for (let i = villagers.chuchus.length - 1; i >= 0; i--) {
+        const ch = villagers.chuchus[i];
+        if (ch.position.distanceTo(slamPoint) < slamRadius) {
+          villagers.damageChuchu(ch, baseDamage, this.engine, audio, this);
+        }
+      }
+    }
+
+    if (villagers.blupees) {
+      for (let i = villagers.blupees.length - 1; i >= 0; i--) {
+        const bp = villagers.blupees[i];
+        if (bp.position.distanceTo(slamPoint) < slamRadius) {
+          villagers.damageBlupee(bp, baseDamage, this.engine, audio, this);
+        }
+      }
+    }
+
+    if (villagers.bubbulfrogs) {
+      for (let i = villagers.bubbulfrogs.length - 1; i >= 0; i--) {
+        const frog = villagers.bubbulfrogs[i];
+        if (frog.position.distanceTo(slamPoint) < slamRadius) {
+          villagers.damageBubbulfrog(frog, baseDamage, this.engine, audio, this);
+        }
+      }
+    }
+
+    if (villagers.cuccos) {
+      for (let i = villagers.cuccos.length - 1; i >= 0; i--) {
+        const cucco = villagers.cuccos[i];
+        if (cucco.position.distanceTo(slamPoint) < slamRadius) {
+          villagers.hitCucco(cucco, this.engine, audio, this);
+        }
+      }
+    }
+
+    if (villagers.foxes) {
+      for (let i = villagers.foxes.length - 1; i >= 0; i--) {
+        const fox = villagers.foxes[i];
+        if (fox.position.distanceTo(slamPoint) < slamRadius) {
+          villagers.interactFox(fox, this.engine, audio, this, true);
+        }
+      }
+    }
 
     // 2. Check felling normal trees / harvesting wood
     environment.breakables.forEach((item, idx) => {
@@ -197,52 +248,89 @@ export class PlayerEvermean {
     const forwardDir = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).normalize();
     const hitPoint = this.position.clone().addScaledVector(forwardDir, 2.5);
 
+    let damage = 25;
+    let radius = 2.8;
+
     if (isMantis) {
-      // Razor-sharp wooden Mantis scythe sweep
       audio.playMantisSlash();
       this.engine.spawnParticles(hitPoint, 20, 0x84cc16, 4.5, 0.1);
-
-      villagers.goblins.forEach(g => {
-        if (g.position.distanceTo(hitPoint) < 3.2) {
-          villagers.damageGoblin(g, 40, this.engine, audio);
-        }
-      });
+      damage = 40;
+      radius = 3.2;
     } else if (element === 'fire') {
       audio.playFireBurst();
       this.engine.spawnParticles(hitPoint, 30, 0xff4500, 5, 0.15);
-      villagers.goblins.forEach(g => {
-        if (g.position.distanceTo(hitPoint) < 4.0) {
-          villagers.damageGoblin(g, 35, this.engine, audio);
-        }
-      });
+      damage = 35;
+      radius = 4.0;
     } else if (element === 'lightning') {
       audio.playThunderSlam();
       this.engine.spawnParticles(hitPoint, 25, 0x00e5ff, 6, 0.12);
       this.engine.applyScreenShake(0.3);
-      villagers.goblins.forEach(g => {
-        if (g.position.distanceTo(hitPoint) < 5.0) {
-          villagers.damageGoblin(g, 38, this.engine, audio);
-        }
-      });
+      damage = 38;
+      radius = 5.0;
     } else if (element === 'cosmic' || this.growthStage === 5) {
-      // Cosmic Gravity Singularity Detonation
       audio.playCosmicSlam();
       this.engine.spawnCosmicBurst(hitPoint, 40);
       this.engine.applyScreenShake(0.6);
-      villagers.goblins.forEach(g => {
-        if (g.position.distanceTo(hitPoint) < 7.0) {
-          villagers.damageGoblin(g, 75, this.engine, audio);
-        }
-      });
+      damage = 75;
+      radius = 7.0;
     } else {
-      // Pointy Root Leg thrust forward
       audio.playRootStep(1.4);
       this.engine.spawnParticles(hitPoint, 15, 0x8b5a2b, 3.5, 0.1);
+      damage = 25;
+      radius = 2.8;
+    }
+
+    this.damageCreaturesInArea(villagers, hitPoint, radius, damage);
+  }
+
+  damageCreaturesInArea(villagers, center, radius, damage) {
+    if (!villagers) return;
+    if (villagers.goblins) {
       villagers.goblins.forEach(g => {
-        if (g.position.distanceTo(hitPoint) < 2.8) {
-          villagers.damageGoblin(g, 25, this.engine, audio);
+        if (g.position.distanceTo(center) < radius) {
+          villagers.damageGoblin(g, damage, this.engine, audio);
         }
       });
+    }
+    if (villagers.chuchus) {
+      for (let i = villagers.chuchus.length - 1; i >= 0; i--) {
+        const ch = villagers.chuchus[i];
+        if (ch.position.distanceTo(center) < radius) {
+          villagers.damageChuchu(ch, damage, this.engine, audio, this);
+        }
+      }
+    }
+    if (villagers.blupees) {
+      for (let i = villagers.blupees.length - 1; i >= 0; i--) {
+        const bp = villagers.blupees[i];
+        if (bp.position.distanceTo(center) < radius) {
+          villagers.damageBlupee(bp, damage, this.engine, audio, this);
+        }
+      }
+    }
+    if (villagers.bubbulfrogs) {
+      for (let i = villagers.bubbulfrogs.length - 1; i >= 0; i--) {
+        const frog = villagers.bubbulfrogs[i];
+        if (frog.position.distanceTo(center) < radius) {
+          villagers.damageBubbulfrog(frog, damage, this.engine, audio, this);
+        }
+      }
+    }
+    if (villagers.cuccos) {
+      for (let i = villagers.cuccos.length - 1; i >= 0; i--) {
+        const cucco = villagers.cuccos[i];
+        if (cucco.position.distanceTo(center) < radius) {
+          villagers.hitCucco(cucco, this.engine, audio, this);
+        }
+      }
+    }
+    if (villagers.foxes) {
+      for (let i = villagers.foxes.length - 1; i >= 0; i--) {
+        const fox = villagers.foxes[i];
+        if (fox.position.distanceTo(center) < radius) {
+          villagers.interactFox(fox, this.engine, audio, this, true);
+        }
+      }
     }
   }
 
@@ -306,6 +394,78 @@ export class PlayerEvermean {
               this.inventory.wood += res.woodReward;
               this.soilBiomass += res.biomassReward;
             }
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      // Check collision with Elemental Chuchus
+      if (villagers && villagers.chuchus) {
+        for (let ch of villagers.chuchus) {
+          if (ch.position.distanceTo(projMesh.position) < 1.4) {
+            clearInterval(interval);
+            villagers.damageChuchu(ch, 35, this.engine, audio, this);
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      // Check collision with Blupees
+      if (villagers && villagers.blupees) {
+        for (let bp of villagers.blupees) {
+          if (bp.position.distanceTo(projMesh.position) < 1.5) {
+            clearInterval(interval);
+            villagers.damageBlupee(bp, 35, this.engine, audio, this);
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      // Check collision with Bubbulfrogs
+      if (villagers && villagers.bubbulfrogs) {
+        for (let frog of villagers.bubbulfrogs) {
+          if (frog.position.distanceTo(projMesh.position) < 1.5) {
+            clearInterval(interval);
+            villagers.damageBubbulfrog(frog, 35, this.engine, audio, this);
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      // Check collision with Cuccos
+      if (villagers && villagers.cuccos) {
+        for (let cucco of villagers.cuccos) {
+          if (cucco.position.distanceTo(projMesh.position) < 1.4) {
+            clearInterval(interval);
+            villagers.hitCucco(cucco, this.engine, audio, this);
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      // Check collision with high-flying Aerocudas (Zelda sky archery!)
+      if (villagers && villagers.aerocudas) {
+        for (let aero of villagers.aerocudas) {
+          if (aero.position.distanceTo(projMesh.position) < 2.0) {
+            clearInterval(interval);
+            villagers.damageAerocuda(aero, 35, this.engine, audio, this);
+            this.scene.remove(projMesh);
+            return;
+          }
+        }
+      }
+
+      // Check collision with Foxes
+      if (villagers && villagers.foxes) {
+        for (let fox of villagers.foxes) {
+          if (fox.position.distanceTo(projMesh.position) < 1.4) {
+            clearInterval(interval);
+            villagers.interactFox(fox, this.engine, audio, this, true);
             this.scene.remove(projMesh);
             return;
           }
@@ -500,7 +660,45 @@ export class PlayerEvermean {
       }
     }
 
-    // 6. Check Pickup Collisions (Dew, Acorns, Stardust)
+    // Check Zonai Boost Pads (Ascend / High sky launch)
+    if (environment && environment.zonaiPads) {
+      for (const pad of environment.zonaiPads) {
+        if (pad.position.distanceTo(this.position) < 2.0 && this.isGrounded) {
+          this.velocity.y = 26.0;
+          this.isGrounded = false;
+          audio.playZonaiBoost?.();
+          this.engine.spawnShockwave(pad.position, 4.5, 0x10b981);
+          this.engine.spawnParticles(pad.position, 40, 0x34d399, 8, 0.2);
+          this.engine.applyScreenShake(0.35);
+          if (window.showGameNotification) {
+            window.showGameNotification('🚀 ZONAI BOOST PAD LAUNCH! Catapulted into the sky!');
+          }
+          break;
+        }
+      }
+    }
+
+    // Check Corrupted Gloom Puddles
+    if (environment && environment.gloomPuddles) {
+      for (const gloom of environment.gloomPuddles) {
+        if (gloom.position.distanceTo(this.position) < gloom.userData.radius) {
+          if (this.inventory.sundelions > 0) {
+            this.inventory.sundelions--;
+            this.engine.spawnShockwave(this.position, 3.0, 0xfacc15);
+            if (window.showGameNotification) {
+              window.showGameNotification('🌼 Golden Sundelion consumed to ward off the deadly Gloom!');
+            }
+          } else {
+            this.takeDamage(6 * delta, 'Malice Gloom');
+            this.moisture = Math.max(0, this.moisture - 10 * delta);
+            this.engine.spawnParticles(this.position, 3, 0x881337, 1.5, 0.08);
+          }
+          break;
+        }
+      }
+    }
+
+    // 6. Check Pickup Collisions (Dew, Acorns, Stardust, Sundelions, Silent Princess, Bomb Flowers, Poes)
     for (let i = environment.pickups.length - 1; i >= 0; i--) {
       const p = environment.pickups[i];
       if (p.position.distanceTo(this.position) < 2.0) {
@@ -508,8 +706,41 @@ export class PlayerEvermean {
         if (u.moistureGain) this.moisture = Math.min(this.maxMoisture, this.moisture + u.moistureGain);
         if (u.biomassGain) this.soilBiomass += u.biomassGain;
         if (u.ammoGain) this.inventory.acorns += u.ammoGain;
-        audio.playPhotosynthesis?.() || audio.playRootStep(1.8);
-        this.engine.spawnParticles(p.position, 10, 0x60a5fa, 2, 0.1);
+        if (u.hpGain) this.barkHp = Math.min(this.maxBarkHp, this.barkHp + u.hpGain);
+        if (u.photosynthesisGain) this.photosynthesis = Math.min(this.maxPhotosynthesis, this.photosynthesis + u.photosynthesisGain);
+        if (u.stardustGain) this.inventory.stardust = (this.inventory.stardust || 0) + u.stardustGain;
+        if (u.sundelionGain) this.inventory.sundelions = (this.inventory.sundelions || 0) + u.sundelionGain;
+
+        if (u.type === 'sundelion') {
+          audio.playBlupeeChime?.();
+          this.engine.spawnShockwave(p.position, 3.5, 0xfacc15);
+          this.engine.spawnParticles(p.position, 25, 0xfacc15, 4, 0.15);
+          if (window.showGameNotification) {
+            window.showGameNotification('🌼 Harvested Golden Sundelion! (+40 Bark HP, +30 Sap, clears Gloom)');
+          }
+        } else if (u.type === 'silent_princess') {
+          audio.playBubbulfrogChime?.();
+          this.engine.spawnCosmicBurst(p.position, 35);
+          if (window.showGameNotification) {
+            window.showGameNotification('🌸 Collected Sacred Silent Princess! (+100 Photosynthesis, +50 Biomass)');
+          }
+        } else if (u.type === 'bomb_flower') {
+          audio.playHeadSlam?.(0.4);
+          this.engine.spawnParticles(p.position, 20, 0xea580c, 3, 0.12);
+          if (window.showGameNotification) {
+            window.showGameNotification('💣 Harvested Bomb Flower! (+3 Acorn Artillery Munitions)');
+          }
+        } else if (u.type === 'poe') {
+          audio.playBlupeeChime?.();
+          this.engine.spawnParticles(p.position, 15, 0x38bdf8, 3, 0.12);
+          if (window.showGameNotification) {
+            window.showGameNotification('👻 Captured Poe Spirit! (+1 Stardust, +15 Biomass)');
+          }
+        } else {
+          audio.playPhotosynthesis?.() || audio.playRootStep(1.8);
+          this.engine.spawnParticles(p.position, 10, 0x60a5fa, 2, 0.1);
+        }
+
         this.scene.remove(p);
         environment.pickups.splice(i, 1);
       }

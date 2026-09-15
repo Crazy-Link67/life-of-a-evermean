@@ -205,8 +205,26 @@ export class MultiplayerLobbyModal {
             </div>
           </div>
 
-          <div style="margin-top: 14px;">
-            <button id="btn-create-host-room" class="btn-mp" style="width: 100%;">👑 Host World & Get Room Code</button>
+          <div style="margin-top: 14px; display: flex; gap: 8px;">
+            <input type="text" id="host-custom-room-input" class="room-input" style="font-size: 13px; letter-spacing: 1px;" placeholder="Custom Room Code (leave blank for random)..." maxlength="16">
+            <button id="btn-create-host-room" class="btn-mp" style="white-space: nowrap;">👑 Host World & Get Room Code</button>
+          </div>
+
+          <!-- Dedicated Hosted Room Details & Copy Card -->
+          <div id="hosted-success-card" style="display: none; margin-top: 14px; background: #14281e; border: 2px solid #10b981; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 0 24px rgba(16, 185, 129, 0.3);">
+            <div style="font-size: 15px; font-weight: 800; color: #6ee7b7; margin-bottom: 3px;">🎉 World Hosted Successfully!</div>
+            <div style="font-size: 12px; color: #a7f3d0; margin-bottom: 10px;">Share this Room Code or link with other players to explore and battle together:</div>
+            
+            <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 12px;">
+              <div id="hosted-code-display" style="font-size: 24px; font-weight: 900; color: #fef08a; font-family: monospace; letter-spacing: 3px; background: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 8px; border: 1.5px solid #ca8a04;">GROVE-42</div>
+              <button id="btn-copy-hosted-code" class="btn-mp" style="background: #059669; border-color: #34d399; padding: 8px 14px; font-size: 13px;">📋 Copy Code</button>
+            </div>
+
+            <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 12px;">
+              <button id="btn-copy-hosted-link" class="btn-mp" style="background: #1e293b; border-color: #38bdf8; color: #7dd3fc; font-size: 12px; padding: 6px 14px;">🔗 Copy Invite Link</button>
+            </div>
+
+            <button id="btn-enter-hosted-world" class="btn-mp" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #34d399; font-size: 15px; width: 100%; padding: 11px;">▶ Enter World & Play Now</button>
           </div>
         </div>
 
@@ -365,18 +383,63 @@ export class MultiplayerLobbyModal {
 
     // Create & Host Room
     document.getElementById('btn-create-host-room').addEventListener('click', () => {
-      const roomNum = Math.floor(10 + Math.random() * 89);
-      const code = `GROVE-${roomNum}`;
+      const customInput = document.getElementById('host-custom-room-input');
+      let code = customInput ? customInput.value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '') : '';
+      if (!code) {
+        const roomNum = Math.floor(10 + Math.random() * 89);
+        code = `GROVE-${roomNum}`;
+      } else if (!code.startsWith('GROVE-') && code.length < 8) {
+        code = `GROVE-${code}`;
+      }
+
       multiplayer.hostRoom(code, selectedMode);
       this.renderActiveRoom();
+
+      // Display the dedicated Hosted Success Card with the code & copy buttons
+      const successCard = document.getElementById('hosted-success-card');
+      const codeDisplay = document.getElementById('hosted-code-display');
+      if (successCard && codeDisplay) {
+        codeDisplay.textContent = code;
+        successCard.style.display = 'block';
+      }
+
       if (window.showGameNotification) {
         window.showGameNotification(`👑 Hosted Room ${code} (${selectedMode.toUpperCase()})! Share code with friends.`);
       }
+    });
+
+    // Copy Hosted Code Button
+    document.getElementById('btn-copy-hosted-code').addEventListener('click', () => {
+      const code = document.getElementById('hosted-code-display').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('btn-copy-hosted-code');
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => (btn.textContent = '📋 Copy Code'), 2500);
+        if (window.showGameNotification) window.showGameNotification(`📋 Copied Room Code ${code} to clipboard!`);
+      });
+    });
+
+    // Copy Hosted Invite Link Button
+    document.getElementById('btn-copy-hosted-link').addEventListener('click', () => {
+      const code = document.getElementById('hosted-code-display').textContent;
+      const url = new URL(window.location.href);
+      url.hash = `room=${code}`;
+      navigator.clipboard.writeText(url.href).then(() => {
+        const btn = document.getElementById('btn-copy-hosted-link');
+        btn.textContent = '✅ Link Copied!';
+        setTimeout(() => (btn.textContent = '🔗 Copy Invite Link'), 2500);
+        if (window.showGameNotification) window.showGameNotification(`🔗 Copied direct invite link for ${code}!`);
+      });
+    });
+
+    // Enter Hosted World Now
+    document.getElementById('btn-enter-hosted-world').addEventListener('click', () => {
       this.hide();
+      if (this.onEnterGameCallback) this.onEnterGameCallback();
     });
 
     // Join Room by Code
-    document.getElementById('btn-join-room-code').addEventListener('click', () => {
+    const doJoin = () => {
       const code = document.getElementById('join-room-code-input').value.trim();
       if (!code) return;
       multiplayer.joinRoom(code);
@@ -385,18 +448,54 @@ export class MultiplayerLobbyModal {
         window.showGameNotification(`🚀 Connected to Room ${code.toUpperCase()}!`);
       }
       this.hide();
+      if (this.onEnterGameCallback) this.onEnterGameCallback();
+    };
+
+    document.getElementById('btn-join-room-code').addEventListener('click', doJoin);
+    document.getElementById('join-room-code-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doJoin();
     });
 
     // Leave Room
     document.getElementById('btn-leave-room').addEventListener('click', () => {
       multiplayer.leaveRoom();
       this.renderActiveRoom();
+      const successCard = document.getElementById('hosted-success-card');
+      if (successCard) successCard.style.display = 'none';
       if (window.showGameNotification) {
         window.showGameNotification('👋 Left multiplayer room.');
       }
     });
 
     multiplayer.onRoomChange(() => this.renderActiveRoom());
+
+    // Auto-detect invite link from URL
+    const checkUrlForRoom = () => {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      let targetRoom = null;
+      if (hash.includes('room=')) {
+        targetRoom = hash.split('room=')[1].split('&')[0];
+      } else if (search.includes('room=')) {
+        targetRoom = new URLSearchParams(search).get('room');
+      }
+      if (targetRoom) {
+        const clean = targetRoom.trim().toUpperCase();
+        const joinInput = document.getElementById('join-room-code-input');
+        if (joinInput) joinInput.value = clean;
+        setTimeout(() => {
+          multiplayer.joinRoom(clean);
+          this.renderActiveRoom();
+          if (this.onEnterGameCallback) this.onEnterGameCallback();
+          if (window.showGameNotification) window.showGameNotification(`🚀 Auto-connected to Room ${clean} from link!`);
+        }, 600);
+      }
+    };
+    checkUrlForRoom();
+  }
+
+  onEnterGame(callback) {
+    this.onEnterGameCallback = callback;
   }
 
   renderActiveRoom() {

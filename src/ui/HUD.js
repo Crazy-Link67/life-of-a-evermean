@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { input } from '../core/Input.js';
 import { creatorMode } from '../core/CreatorMode.js';
 import { arena } from '../core/ArenaManager.js';
@@ -76,7 +77,7 @@ export class HUD {
         /* Top Center: Day / Night & Stage Banner */
         .top-center-banner {
           position: absolute;
-          top: 18px;
+          top: 44px;
           left: 50%;
           transform: translateX(-50%);
           background: rgba(18, 14, 10, 0.85);
@@ -258,7 +259,28 @@ export class HUD {
           font-weight: 700;
           font-size: 11px;
         }
+        @keyframes spinReticle {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .compass-item {
+          position: absolute;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          font-weight: 800;
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          white-space: nowrap;
+        }
       </style>
+
+      <!-- Top Compass Bar (Zelda TOTK Style) -->
+      <div id="hud-compass-bar" style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 340px; height: 26px; background: rgba(18, 14, 10, 0.88); backdrop-filter: blur(8px); border: 1px solid rgba(139, 90, 43, 0.5); border-radius: 13px; overflow: hidden; pointer-events: none; z-index: 10; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
+        <div style="position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #facc15; transform: translateX(-50%); z-index: 3; box-shadow: 0 0 6px #facc15;"></div>
+        <div id="compass-track" style="position: relative; width: 100%; height: 100%;"></div>
+      </div>
 
       <!-- Survival Bars -->
       <div class="stat-panel">
@@ -373,6 +395,58 @@ export class HUD {
       <div class="crosshair"></div>
       <div id="evermean-sight-vignette"></div>
 
+      <!-- Circular Stamina Wheel (Zelda TOTK Style) -->
+      <div id="stamina-wheel-container" style="position: absolute; top: 50%; left: calc(50% + 36px); transform: translateY(-50%); width: 50px; height: 50px; pointer-events: none; opacity: 0; transition: opacity 0.25s ease; z-index: 50;">
+        <svg width="50" height="50" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="18" fill="rgba(15, 12, 8, 0.75)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="5" />
+          <circle id="stamina-wheel-circle" cx="25" cy="25" r="18" fill="none" stroke="#22c55e" stroke-width="5" stroke-dasharray="113.1" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 25 25)" />
+          <text id="stamina-wheel-icon" x="25" y="29" text-anchor="middle" fill="#86efac" font-size="11" font-weight="900">⚡</text>
+        </svg>
+      </div>
+
+      <!-- Ultrahand Reticle & Interaction HUD -->
+      <div id="ultrahand-reticle" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border: 2px dashed #10b981; border-radius: 50%; display: none; pointer-events: none; animation: spinReticle 6s linear infinite; box-shadow: 0 0 16px rgba(16, 185, 129, 0.7); z-index: 20;"></div>
+      <div id="ultrahand-action-prompt" style="position: absolute; top: calc(50% + 26px); left: 50%; transform: translateX(-50%); background: rgba(6, 78, 59, 0.9); border: 1.5px solid #10b981; color: #a7f3d0; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; display: none; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.6); z-index: 25;">
+        [E] Drop | [F] Fuse to Head
+      </div>
+
+      <!-- Equipped Fused Item Badge -->
+      <div id="fused-item-badge" style="position: absolute; bottom: 80px; right: 20px; background: rgba(18, 14, 10, 0.88); backdrop-filter: blur(8px); border: 1.5px solid #ca8a04; border-radius: 12px; padding: 8px 14px; display: none; align-items: center; gap: 8px; color: #fef08a; font-size: 12px; font-weight: 700; box-shadow: 0 4px 16px rgba(0,0,0,0.5); z-index: 30;">
+        <span id="fused-item-icon" style="font-size: 20px;">🪨</span>
+        <div>
+          <div id="fused-item-name" style="font-weight: 800; color: #fef08a;">Fused Granite Boulder</div>
+          <div id="fused-item-stats" style="font-size: 10px; color: #cbd5e1;">+2.5x Slam Damage | Durability: 6/6</div>
+        </div>
+      </div>
+
+      <!-- Topographic Parchment Map Overlay (M) -->
+      <div id="topographic-map-overlay" style="position: absolute; inset: 0; background: rgba(10, 8, 6, 0.88); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; pointer-events: auto;">
+        <div style="position: relative; width: 85vw; max-width: 680px; height: 80vh; max-height: 620px; background: #e8d8b8; border: 4px solid #5c3a21; border-radius: 16px; box-shadow: 0 16px 50px rgba(0,0,0,0.85); display: flex; flex-direction: column; overflow: hidden; font-family: 'Segoe UI', serif;">
+          <div style="background: #3e2716; color: #fef08a; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #5c3a21;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">🗺️</span>
+              <span style="font-size: 15px; font-weight: 800; letter-spacing: 1px;">SYLVAN FOREST TOPOGRAPHIC ATLAS</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 11px; color: #d1b89d;">Click Map to Ping Waypoint | [M] Close</span>
+              <button id="btn-close-map" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-weight: 900;">✕</button>
+            </div>
+          </div>
+          <div style="flex: 1; position: relative; overflow: hidden; background: #eedfc5;">
+            <canvas id="topographic-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+          </div>
+          <div style="background: #2b1b10; color: #e5d5c0; padding: 8px 16px; font-size: 11px; display: flex; justify-content: space-around; border-top: 2px solid #5c3a21; font-weight: 600;">
+            <span>🟢 Evermean (You)</span>
+            <span>🏝️ Sky Islands</span>
+            <span>🕳️ Ancient Chasm</span>
+            <span>🦫 Beaver Village</span>
+            <span>👹 Bokoblin Camp</span>
+            <span>📍 Waypoint Beacon</span>
+            <span>🌲 Remote Players</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Badges -->
       <div class="status-badge-container">
         <div id="disguise-badge" class="status-badge" style="border-color: #22c55e; color: #86efac;">
@@ -393,11 +467,15 @@ export class HUD {
       <div class="controls-hint-bar">
         <span><span class="key-badge">L-Click</span> Head-Slam</span>
         <span><span class="key-badge">R-Click</span> Special / Scythe</span>
-        <span><span class="key-badge">C</span> Camouflage</span>
+        <span><span class="key-badge">E</span> Ultrahand</span>
+        <span><span class="key-badge">F</span> Fuse</span>
+        <span><span class="key-badge">G</span> Ping</span>
+        <span><span class="key-badge">M</span> Map</span>
+        <span><span class="key-badge">C</span> Camo</span>
         <span><span class="key-badge">R</span> Burrow</span>
-        <span><span class="key-badge">Q</span> Acorn Slingshot</span>
+        <span><span class="key-badge">Q</span> Acorn</span>
         <span><span class="key-badge">Space</span> Jump / Swim</span>
-        <span><span class="key-badge">B</span> Build Grove</span>
+        <span><span class="key-badge">B</span> Build</span>
         <span><span class="key-badge">V</span> View</span>
         <span><span class="key-badge">Esc</span> Menu</span>
         <span><button id="hud-mode-toggle" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fef08a; padding: 2px 8px; border-radius: 4px; font-weight: 800; cursor: pointer; pointer-events: auto;">🖥️ PC</button></span>
@@ -510,6 +588,34 @@ export class HUD {
             window.showGameNotification(`📋 Copied Room Code ${code}!`);
           }
         });
+      });
+    }
+
+    // Topographic Map Listeners
+    const mapCanvas = document.getElementById('topographic-canvas');
+    if (mapCanvas) {
+      mapCanvas.addEventListener('click', (e) => {
+        const rect = mapCanvas.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) / rect.width;
+        const clickY = (e.clientY - rect.top) / rect.height;
+        const worldMin = -100;
+        const worldSpan = 200;
+        const targetX = worldMin + clickX * worldSpan;
+        const targetZ = worldMin + clickY * worldSpan;
+        if (multiplayer) {
+          multiplayer.broadcastPing(new THREE.Vector3(targetX, 0, targetZ));
+          if (window.game && window.game.player) {
+            this.drawTopographicMap(window.game.player, window.game.terrain, multiplayer);
+          }
+        }
+      });
+    }
+
+    const closeMapBtn = document.getElementById('btn-close-map');
+    if (closeMapBtn) {
+      closeMapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeMap();
       });
     }
   }
@@ -654,6 +760,309 @@ export class HUD {
         const glowHex = player.speciesConfig?.glowColor ? `#${player.speciesConfig.glowColor.toString(16).padStart(6, '0')}` : 'rgba(168, 85, 247, 0.1)';
         vignette.style.boxShadow = `inset 0 0 85px ${glowHex}`;
       }
+    }
+
+    // 7. Dynamic Zelda TOTK Systems: Compass, Stamina Wheel, Ultrahand & Map
+    this.updateCompass(player);
+    this.updateStaminaWheel(player);
+    this.updateUltrahandHud(player);
+
+    const mapOverlay = document.getElementById('topographic-map-overlay');
+    if (mapOverlay && mapOverlay.style.display === 'flex') {
+      this.drawTopographicMap(player, window.game?.terrain, multiplayer);
+    }
+  }
+
+  // Toggle Topographic Atlas Map
+  toggleMap(player = null, terrain = null, mp = null) {
+    const overlay = document.getElementById('topographic-map-overlay');
+    if (!overlay) return;
+    const isOpen = overlay.style.display === 'flex';
+    if (isOpen) {
+      this.closeMap();
+    } else {
+      this.openMap(player, terrain, mp);
+    }
+  }
+
+  openMap(player = null, terrain = null, mp = null) {
+    const overlay = document.getElementById('topographic-map-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    if (document.exitPointerLock) document.exitPointerLock();
+    const p = player || window.game?.player;
+    const t = terrain || window.game?.terrain;
+    const m = mp || multiplayer;
+    this.drawTopographicMap(p, t, m);
+  }
+
+  closeMap() {
+    const overlay = document.getElementById('topographic-map-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    if (input && input.mode === 'pc') {
+      input.requestPointerLock();
+    }
+  }
+
+  // Update Zelda TOTK Top Compass Bar
+  updateCompass(player) {
+    const track = document.getElementById('compass-track');
+    if (!track || !player || !player.position) return;
+
+    const width = 340;
+    const halfW = width / 2;
+    const fov = Math.PI * 0.75;
+
+    const landmarks = [
+      { name: 'N', yaw: 0, color: '#facc15', isCardinal: true },
+      { name: 'E', yaw: Math.PI / 2, color: '#d1b89d', isCardinal: true },
+      { name: 'S', yaw: Math.PI, color: '#d1b89d', isCardinal: true },
+      { name: 'W', yaw: -Math.PI / 2, color: '#d1b89d', isCardinal: true },
+      { name: '🏝️ Sky', x: 50, z: 60, color: '#38bdf8' },
+      { name: '🕳️ Chasm', x: 75, z: 70, color: '#a855f7' },
+      { name: '🦫 Beaver', x: -28, z: 25, color: '#f97316' },
+      { name: '💧 Lake', x: 0, z: 65, color: '#06b6d4' },
+      { name: '👹 Camp', x: 65, z: -40, color: '#ef4444' }
+    ];
+
+    if (multiplayer && multiplayer.activeBeacons) {
+      multiplayer.activeBeacons.forEach((b) => {
+        landmarks.push({ name: '📍 Ping', x: b.pos.x, z: b.pos.z, color: '#38bdf8' });
+      });
+    }
+
+    if (multiplayer && multiplayer.remotePlayers) {
+      multiplayer.remotePlayers.forEach((rp) => {
+        landmarks.push({ name: `🌲 ${rp.username}`, x: rp.targetPos.x, z: rp.targetPos.z, color: '#4ade80' });
+      });
+    }
+
+    let html = '';
+    landmarks.forEach((lm) => {
+      let targetAngle = lm.yaw;
+      if (lm.x !== undefined && lm.z !== undefined) {
+        const dx = lm.x - player.position.x;
+        const dz = lm.z - player.position.z;
+        targetAngle = Math.atan2(dx, dz);
+      }
+
+      let diff = targetAngle - player.yaw;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+
+      if (Math.abs(diff) < fov / 2) {
+        const xPos = halfW + (diff / (fov / 2)) * halfW;
+        html += `<span class="compass-item" style="left: ${xPos}px; color: ${lm.color};">${lm.name}</span>`;
+      }
+    });
+
+    track.innerHTML = html;
+  }
+
+  // Update Zelda TOTK Circular Stamina Wheel
+  updateStaminaWheel(player) {
+    const container = document.getElementById('stamina-wheel-container');
+    const circle = document.getElementById('stamina-wheel-circle');
+    const icon = document.getElementById('stamina-wheel-icon');
+    if (!container || !circle || !player) return;
+
+    const staminaPct = Math.max(0, Math.min(1, (player.stamina || 100) / (player.maxStamina || 100)));
+    const circum = 113.1;
+    circle.style.strokeDashoffset = circum * (1 - staminaPct);
+
+    if (player.isExhausted) {
+      circle.style.stroke = '#ef4444';
+      if (icon) icon.textContent = '⚠️';
+      container.style.opacity = '1';
+    } else {
+      circle.style.stroke = '#22c55e';
+      if (icon) icon.textContent = '⚡';
+      if (staminaPct < 0.98) {
+        container.style.opacity = '1';
+      } else {
+        container.style.opacity = '0';
+      }
+    }
+  }
+
+  // Update Ultrahand Reticle & Fused Item Indicator
+  updateUltrahandHud(player) {
+    const reticle = document.getElementById('ultrahand-reticle');
+    const prompt = document.getElementById('ultrahand-action-prompt');
+    const fusedBadge = document.getElementById('fused-item-badge');
+
+    if (reticle && prompt) {
+      if (player.isUltrahandActive) {
+        reticle.style.display = 'block';
+        prompt.style.display = 'block';
+      } else {
+        reticle.style.display = 'none';
+        prompt.style.display = 'none';
+      }
+    }
+
+    if (fusedBadge) {
+      if (player.fusedItem) {
+        fusedBadge.style.display = 'flex';
+        const nameEl = document.getElementById('fused-item-name');
+        const statsEl = document.getElementById('fused-item-stats');
+        const iconEl = document.getElementById('fused-item-icon');
+        if (nameEl) nameEl.textContent = `Fused: ${player.fusedItem.name}`;
+        if (statsEl) {
+          const mult = player.fusedItem.type === 'bomb_flower' ? '4.0x Explosion' : (player.fusedItem.type === 'boulder' ? '2.5x Slam' : '1.4x Sweep');
+          statsEl.textContent = `+${mult} | Durability: ${player.fusedItem.durability}/${player.fusedItem.maxDurability}`;
+        }
+        if (iconEl) {
+          iconEl.textContent = player.fusedItem.type === 'bomb_flower' ? '💣' : (player.fusedItem.type === 'boulder' ? '🪨' : '🪵');
+        }
+      } else {
+        fusedBadge.style.display = 'none';
+      }
+    }
+  }
+
+  // Draw 2D Parchment Topographic Map
+  drawTopographicMap(player, terrain, mp) {
+    const canvas = document.getElementById('topographic-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    if (canvas.width !== Math.floor(rect.width) || canvas.height !== Math.floor(rect.height)) {
+      canvas.width = Math.floor(rect.width);
+      canvas.height = Math.floor(rect.height);
+    }
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Vintage Parchment Background
+    ctx.fillStyle = '#eedfc5';
+    ctx.fillRect(0, 0, w, h);
+
+    const worldMin = -100;
+    const worldSpan = 200;
+    const toCanvasX = (wx) => ((wx - worldMin) / worldSpan) * w;
+    const toCanvasY = (wz) => ((wz - worldMin) / worldSpan) * h;
+
+    // Topographic contour rings
+    ctx.strokeStyle = '#d7c4a3';
+    ctx.lineWidth = 1.5;
+    for (let r = 15; r <= 85; r += 14) {
+      ctx.beginPath();
+      ctx.arc(toCanvasX(20), toCanvasY(20), (r / worldSpan) * w, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Sylvan River
+    ctx.beginPath();
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = Math.max(6, (12 / worldSpan) * w);
+    ctx.lineCap = 'round';
+    for (let z = -90; z <= 90; z += 5) {
+      const rx = Math.sin(z * 0.025) * 28.0;
+      const cx = toCanvasX(rx);
+      const cy = toCanvasY(z);
+      if (z === -90) ctx.moveTo(cx, cy);
+      else ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    // Sylvan Lake
+    ctx.fillStyle = 'rgba(96, 165, 250, 0.4)';
+    ctx.beginPath();
+    ctx.arc(toCanvasX(0), toCanvasY(65), (22 / worldSpan) * w, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Ancient Chasm crater
+    ctx.fillStyle = 'rgba(126, 34, 206, 0.35)';
+    ctx.beginPath();
+    ctx.arc(toCanvasX(75), toCanvasY(70), (14 / worldSpan) * w, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#9333ea';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Landmarks
+    const landmarks = [
+      { name: 'Sky Islands', x: 50, z: 60, icon: '🏝️' },
+      { name: 'Ancient Chasm', x: 75, z: 70, icon: '🕳️' },
+      { name: 'Beaver Village', x: -28, z: 25, icon: '🦫' },
+      { name: 'Bokoblin Camp', x: 65, z: -40, icon: '👹' },
+      { name: 'Sylvan Lake', x: 0, z: 65, icon: '💧' }
+    ];
+
+    ctx.font = 'bold 12px serif';
+    ctx.textAlign = 'center';
+    landmarks.forEach((lm) => {
+      const cx = toCanvasX(lm.x);
+      const cy = toCanvasY(lm.z);
+      ctx.fillText(lm.icon, cx, cy);
+      ctx.fillStyle = '#451a03';
+      ctx.fillText(lm.name, cx, cy + 13);
+    });
+
+    // Active Waypoint Beacons
+    if (mp && mp.activeBeacons) {
+      mp.activeBeacons.forEach((b) => {
+        const cx = toCanvasX(b.pos.x);
+        const cy = toCanvasY(b.pos.z);
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+        ctx.fill();
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillText('📍', cx, cy - 2);
+      });
+    }
+
+    // Remote Players
+    if (mp && mp.remotePlayers) {
+      mp.remotePlayers.forEach((rp) => {
+        const cx = toCanvasX(rp.targetPos.x);
+        const cy = toCanvasY(rp.targetPos.z);
+        ctx.fillText('🌲', cx, cy);
+        ctx.fillStyle = '#166534';
+        ctx.fillText(rp.username, cx, cy + 12);
+      });
+    }
+
+    // Local Player Position & Orientation Arrow
+    if (player && player.position) {
+      const px = toCanvasX(player.position.x);
+      const py = toCanvasY(player.position.z);
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-player.yaw);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.35)';
+      ctx.fill();
+      ctx.strokeStyle = '#15803d';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, 8);
+      ctx.lineTo(5, -6);
+      ctx.lineTo(0, -4);
+      ctx.lineTo(-5, -6);
+      ctx.closePath();
+      ctx.fillStyle = '#16a34a';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = '#14532d';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('You', px, py + 20);
     }
   }
 }

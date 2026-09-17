@@ -52,6 +52,13 @@ export class WorldTerrain {
       h = Math.max(-0.6, Math.min(1.2, h)); // Gentle river landing
     }
 
+    // 6. Subterranean Root Chasm Descent at x: 75, z: 70
+    const distToChasm = Math.hypot(x - 75, z - 70);
+    if (distToChasm < 18) {
+      const chasmFactor = Math.cos((distToChasm / 18) * (Math.PI / 2));
+      h -= chasmFactor * 14.0; // Deep chasm descent into underground roots
+    }
+
     return h;
   }
 
@@ -77,6 +84,7 @@ export class WorldTerrain {
     const dirtColor = new THREE.Color(0x735135);
     const sandColor = new THREE.Color(0xd2b48c);
     const stoneColor = new THREE.Color(0x696969);
+    const gloomColor = new THREE.Color(0x18050e);
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -84,9 +92,14 @@ export class WorldTerrain {
       const y = this.getHeight(x, z);
       pos.setY(i, y);
 
+      const distToChasm = Math.hypot(x - 75, z - 70);
+
       // Vertex Coloring according to height and slope
       const col = new THREE.Color();
-      if (y < this.waterLevel + 0.5) {
+      if (distToChasm < 16) {
+        // Scorched Gloom Chasm descent
+        col.copy(gloomColor).lerp(new THREE.Color(0x881337), (16 - distToChasm) / 16);
+      } else if (y < this.waterLevel + 0.5) {
         // Shoreline sand
         col.copy(sandColor).offsetHSL(0, 0, (Math.random() - 0.5) * 0.05);
       } else if (y < this.waterLevel + 1.8) {

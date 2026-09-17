@@ -15,6 +15,9 @@ export class Environment {
     this.grassMesh = null;
     this.zonaiPads = [];
     this.gloomPuddles = [];
+    this.skyIslands = [];
+    this.fusableObjects = [];
+    this.chasmCavern = null;
     this.goblinCampCenter = new THREE.Vector3(65, 0, -40);
     this.beaverVillageCenter = new THREE.Vector3(-28, 0, 25);
   }
@@ -36,7 +39,7 @@ export class Environment {
     this.spawnForagables(18);
 
     // 5. Scatter 3D Instanced Wind-blown Grass Tufts & Wildflowers
-    this.spawnInstancedFoliage(650);
+    this.spawnInstancedFoliage(1400);
 
     // 6. Spawn Interactive Zelda-style Korok Puzzles
     this.spawnKorokPuzzles();
@@ -47,7 +50,7 @@ export class Environment {
     // 8. Glowing Bioluminescent Mushroom Groves
     this.spawnGlowingMushrooms(22);
 
-    // 9. Mossy Granite Boulders & Fallen Logs
+    // 9. Mossy Granite Boulders & Fallen Logs (Fusable objects)
     this.spawnRockFormations(50);
     this.spawnFallenLogs(25);
 
@@ -67,6 +70,12 @@ export class Environment {
     this.spawnPoes(18);
     this.spawnZonaiBoostPads();
     this.spawnGloomPuddles();
+
+    // 14. Floating Sylvan Sky Islands & Cascading Waterfalls
+    this.spawnSkyIslands();
+
+    // 15. Subterranean Root Chasm Cavern & Glowing Crystals
+    this.spawnChasmCavern();
   }
 
   // Ordinary forest trees that the player blends into
@@ -636,7 +645,16 @@ export class Environment {
       rock.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
       rock.castShadow = true;
       rock.receiveShadow = true;
+      rock.userData = {
+        isFusable: true,
+        fuseType: 'boulder',
+        name: 'Granite Boulder',
+        scale
+      };
       this.scene.add(rock);
+      if (!isSteppingStone) {
+        this.fusableObjects.push(rock);
+      }
     }
   }
 
@@ -659,7 +677,13 @@ export class Environment {
       log.rotation.y = Math.random() * Math.PI;
       log.position.set(x, y + 0.35, z);
       log.castShadow = true;
+      log.userData = {
+        isFusable: true,
+        fuseType: 'log',
+        name: 'Hardwood Log'
+      };
       this.scene.add(log);
+      this.fusableObjects.push(log);
     }
   }
 
@@ -925,11 +949,14 @@ export class Environment {
         type: 'bomb_flower',
         name: 'Bomb Flower',
         ammoGain: 3,
-        biomassGain: 20
+        biomassGain: 20,
+        isFusable: true,
+        fuseType: 'bomb_flower'
       };
 
       this.scene.add(bomb);
       this.pickups.push(bomb);
+      this.fusableObjects.push(bomb);
     }
   }
 
@@ -1107,13 +1134,153 @@ export class Environment {
     // Zonai Boost Pad animations
     this.zonaiPads.forEach((pad, idx) => {
       const u = pad.userData;
-      if (u.glyphRing) {
+      if (u && u.glyphRing) {
         u.glyphRing.rotation.z += delta * 1.2;
       }
-      if (u.beam) {
+      if (u && u.beam) {
         u.beam.material.opacity = 0.35 + Math.sin(time * 6 + idx) * 0.18;
       }
     });
+
+    // Sky Island animated waterfalls & glowing sacred crystals
+    if (this.skyIslands) {
+      this.skyIslands.forEach(isl => {
+        if (isl.userData && isl.userData.crystal) {
+          isl.userData.crystal.rotation.y += delta * 0.8;
+          isl.userData.crystal.rotation.x = Math.sin(time * 1.6) * 0.12;
+        }
+      });
+    }
+  }
+
+  // 14. Floating Zelda TOTK Sylvan Sky Islands with Cascading Waterfalls
+  spawnSkyIslands() {
+    const islands = [
+      { x: 10, y: 82, z: 45, radius: 24, name: 'Great Sylvan Sky Island' },
+      { x: -55, y: 92, z: -35, radius: 18, name: 'Ancient Temple Sky Altar' }
+    ];
+
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.7 });
+    const runeMat = new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x059669, emissiveIntensity: 0.7 });
+    const waterMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.75,
+      roughness: 0.05,
+      metalness: 0.4,
+      side: THREE.DoubleSide
+    });
+
+    islands.forEach(isl => {
+      const group = new THREE.Group();
+      group.position.set(isl.x, isl.y, isl.z);
+
+      // Inverted Rock Cone Bottom
+      const baseCone = new THREE.Mesh(new THREE.ConeGeometry(isl.radius, 22, 14), stoneMat);
+      baseCone.rotation.x = Math.PI; // point downwards
+      baseCone.position.y = -11;
+      baseCone.castShadow = true;
+      group.add(baseCone);
+
+      // Flat Lush Grass Plateau
+      const topPlateau = new THREE.Mesh(new THREE.CylinderGeometry(isl.radius, isl.radius, 2.5, 16), grassMat);
+      topPlateau.position.y = 1.25;
+      topPlateau.receiveShadow = true;
+      group.add(topPlateau);
+
+      // Ancient Zonai Temple Columns
+      for (let c = 0; c < 6; c++) {
+        const angle = (c / 6) * Math.PI * 2;
+        const cx = Math.cos(angle) * (isl.radius * 0.65);
+        const cz = Math.sin(angle) * (isl.radius * 0.65);
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.75, 5.5, 8), stoneMat);
+        col.position.set(cx, 4.0, cz);
+        col.castShadow = true;
+        group.add(col);
+      }
+
+      // Center Sacred Zonai Monolith Altar
+      const altar = new THREE.Mesh(new THREE.BoxGeometry(4.0, 1.8, 4.0), stoneMat);
+      altar.position.y = 2.4;
+      group.add(altar);
+
+      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.2), runeMat);
+      crystal.position.y = 4.2;
+      group.add(crystal);
+
+      // Cascading Sky Waterfall plunging downward toward lake below
+      const fallHeight = isl.y;
+      const waterfall = new THREE.Mesh(new THREE.PlaneGeometry(6.5, fallHeight), waterMat);
+      waterfall.position.set(isl.radius * 0.85, -fallHeight * 0.5 + 2, 0);
+      waterfall.rotation.y = Math.PI / 2;
+      group.add(waterfall);
+      group.userData = { waterfall, crystal, name: isl.name };
+
+      this.scene.add(group);
+      this.skyIslands.push(group);
+    });
+
+    // Add Aligned Ground Launch Boost Pad directly below Great Sky Island at (10, 45)
+    if (this.zonaiPads) {
+      const groundY = this.terrain.getHeight(10, 45);
+      const padMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.7, roughness: 0.3 });
+      const padRingMat = new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 0.95 });
+      const pad = new THREE.Group();
+      pad.position.set(10, groundY + 0.1, 45);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 0.35, 16), padMat);
+      pad.add(base);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 2.1, 16), padRingMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.2;
+      pad.add(ring);
+      this.scene.add(pad);
+      this.zonaiPads.push(pad);
+    }
+  }
+
+  // 15. Subterranean Root Chasm Cavern with Bioluminescent Crystals & Bubbulfrog Perch
+  spawnChasmCavern() {
+    const cx = 75;
+    const cz = 70;
+    const cy = -12; // deep subterranean crater
+    const cavernGroup = new THREE.Group();
+    cavernGroup.position.set(cx, cy, cz);
+
+    const crystalMatCyan = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.85,
+      roughness: 0.2
+    });
+    const crystalMatPurple = new THREE.MeshStandardMaterial({
+      color: 0xc084fc,
+      emissive: 0x7e22ce,
+      emissiveIntensity: 0.85,
+      roughness: 0.2
+    });
+
+    // Subterranean glowing crystal formations
+    for (let c = 0; c < 12; c++) {
+      const angle = (c / 12) * Math.PI * 2;
+      const dist = 5.0 + Math.random() * 8.0;
+      const stalag = new THREE.Mesh(
+        new THREE.ConeGeometry(0.4 + Math.random() * 0.4, 2.5 + Math.random() * 3.0, 6),
+        c % 2 === 0 ? crystalMatCyan : crystalMatPurple
+      );
+      stalag.position.set(Math.cos(angle) * dist, 1.2, Math.sin(angle) * dist);
+      stalag.rotation.z = (Math.random() - 0.5) * 0.3;
+      cavernGroup.add(stalag);
+    }
+
+    // Ancient Ruined Underground Golden Urn / Chest
+    const urnMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, metalness: 0.8, roughness: 0.2 });
+    const urn = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 1), urnMat);
+    urn.position.set(0, 0.8, 0);
+    cavernGroup.add(urn);
+
+    this.scene.add(cavernGroup);
+    this.chasmCavern = cavernGroup;
   }
 }
 

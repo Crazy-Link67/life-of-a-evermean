@@ -12,6 +12,18 @@ export class Engine {
 
     // Particle manager
     this.particles = [];
+
+    // Dynamic Weather Systems
+    this.rainParticles = null;
+    this.rainPositions = null;
+    this.rainCount = 850;
+    this.isRaining = false;
+    this.lightningTimer = 0;
+    this.lightningLight = null;
+
+    // Ultrahand Visual Tether
+    this.ultrahandLine = null;
+    this.ultrahandRings = [];
   }
 
   init(container, settings = {}) {
@@ -73,6 +85,14 @@ export class Engine {
     this.rimLight = new THREE.DirectionalLight(0xffeedd, 0.45);
     this.rimLight.position.set(-60, 45, -40);
     this.scene.add(this.rimLight);
+
+    // Dynamic Weather Lightning Light
+    this.lightningLight = new THREE.DirectionalLight(0xffffff, 0);
+    this.lightningLight.position.set(20, 150, 20);
+    this.scene.add(this.lightningLight);
+
+    // Weather Particle System (Rain streaks)
+    this.createRainSystem();
 
     // 5. Atmospheric Sky Dome & Sun Corona
     this.createSkyDome();
@@ -226,12 +246,108 @@ export class Engine {
     this.spawnParticles(position, count / 2, 0x00ffff, 4.5, 0.15, 'sphere');
   }
 
+  // Create Rain Streaks Particle System
+  createRainSystem() {
+    const rainGeom = new THREE.BufferGeometry();
+    const positions = new Float32Array(this.rainCount * 3);
+    for (let i = 0; i < this.rainCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 70;
+      positions[i * 3 + 1] = Math.random() * 45;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 70;
+    }
+    rainGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const rainMat = new THREE.PointsMaterial({
+      color: 0xbae6fd,
+      size: 0.32,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false
+    });
+    this.rainParticles = new THREE.Points(rainGeom, rainMat);
+    this.scene.add(this.rainParticles);
+  }
+
+  setRaining(isRaining) {
+    this.isRaining = isRaining;
+    if (this.rainParticles) {
+      this.rainParticles.material.opacity = isRaining ? 0.65 : 0.0;
+    }
+  }
+
+  triggerLightning(soundDelay = 0.25) {
+    this.lightningTimer = 0.22;
+    if (this.lightningLight) {
+      this.lightningLight.intensity = 3.2;
+    }
+    this.applyScreenShake(0.35);
+    setTimeout(() => {
+      import('./AudioManager.js').then(({ audio }) => {
+        audio.playThunder(Math.random() * 0.7 + 0.3);
+      });
+    }, soundDelay * 1000);
+  }
+
+  // Render emerald Ultrahand magnetic tether
+  renderUltrahandTether(startPos, endPos) {
+    if (!this.ultrahandLine) {
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0x34d399,
+        linewidth: 3,
+        transparent: true,
+        opacity: 0.92
+      });
+      const lineGeom = new THREE.BufferGeometry().setFromPoints([startPos, endPos]);
+      this.ultrahandLine = new THREE.Line(lineGeom, lineMat);
+      this.scene.add(this.ultrahandLine);
+    } else {
+      this.ultrahandLine.visible = true;
+      const positions = this.ultrahandLine.geometry.attributes.position;
+      positions.setXYZ(0, startPos.x, startPos.y, startPos.z);
+      positions.setXYZ(1, endPos.x, endPos.y, endPos.z);
+      positions.needsUpdate = true;
+    }
+  }
+
+  hideUltrahandTether() {
+    if (this.ultrahandLine) {
+      this.ultrahandLine.visible = false;
+    }
+  }
+
   update(delta) {
     // Screen shake decay
     if (this.screenShake > 0.001) {
       this.camera.position.x += (Math.random() - 0.5) * this.screenShake * 0.2;
       this.camera.position.y += (Math.random() - 0.5) * this.screenShake * 0.2;
       this.screenShake = Math.max(0, this.screenShake - delta * this.shakeDecay);
+    }
+
+    // Update Rain Particles around Camera
+    if (this.isRaining && this.rainParticles && this.camera) {
+      const pos = this.rainParticles.geometry.attributes.position;
+      const camPos = this.camera.position;
+      for (let i = 0; i < this.rainCount; i++) {
+        let y = pos.getY(i) - delta * 38.0;
+        let x = pos.getX(i);
+        let z = pos.getZ(i);
+
+        // Wrap around player camera in a 65x65 box
+        if (y < camPos.y - 12 || Math.abs(x - camPos.x) > 35 || Math.abs(z - camPos.z) > 35) {
+          y = camPos.y + 25 + Math.random() * 12;
+          x = camPos.x + (Math.random() - 0.5) * 65;
+          z = camPos.z + (Math.random() - 0.5) * 65;
+        }
+        pos.setXYZ(i, x, y, z);
+      }
+      pos.needsUpdate = true;
+    }
+
+    // Lightning Flash Decay
+    if (this.lightningTimer > 0) {
+      this.lightningTimer -= delta;
+      if (this.lightningLight) {
+        this.lightningLight.intensity = Math.max(0, this.lightningTimer * 14.0);
+      }
     }
 
     // Update particles

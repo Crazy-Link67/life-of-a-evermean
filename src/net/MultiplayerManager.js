@@ -24,13 +24,16 @@ export class MultiplayerManager {
     this.seenPackets = new Set();
     this.peer = null;
     this.peerConnections = new Map();
+    this.activeBeacons = [];
+    this.colony = null;
   }
 
-  init(scene, terrain, engine, player) {
+  init(scene, terrain, engine, player, colony = null) {
     this.scene = scene;
     this.terrain = terrain;
     this.engine = engine;
     this.localPlayer = player;
+    this.colony = colony;
   }
 
   // Host a new Room
@@ -396,6 +399,21 @@ export class MultiplayerManager {
         break;
       }
 
+      case 'WAYPOINT_PING': {
+        if (data.position) {
+          this.spawnWaypointBeacon(data.position, data.color || 0x38bdf8, data.senderName);
+        }
+        break;
+      }
+
+      case 'BUILD_STRUCTURE': {
+        if (this.colony && data.position) {
+          this.colony.buildStructure(data.typeId, new THREE.Vector3(data.position.x, data.position.y, data.position.z), null, true);
+          if (this.engine) this.engine.spawnParticles(new THREE.Vector3(data.position.x, data.position.y, data.position.z), 25, 0x10b981, 4, 0.2);
+        }
+        break;
+      }
+
       case 'PLAYER_LEAVE': {
         this.removeRemotePlayer(playerKey);
         break;
@@ -478,9 +496,47 @@ export class MultiplayerManager {
     if (data.yaw !== undefined) remote.targetYaw = data.yaw;
     if (data.hp !== undefined) remote.hp = data.hp;
 
+    if (data.fusedType !== remote.fusedType) {
+      remote.fusedType = data.fusedType;
+      this.updateRemoteFusedMesh(remote);
+    }
+
     if (remote.model && data.isAttacking && remote.model.userData.trunkMesh) {
       remote.model.userData.trunkMesh.rotation.x = 0.8;
     }
+  }
+
+  // Visual Fused Item on Remote Evermean
+  updateRemoteFusedMesh(remote) {
+    if (!remote.model) return;
+    if (remote.fusedMesh) {
+      remote.model.remove(remote.fusedMesh);
+      remote.fusedMesh = null;
+    }
+
+    if (!remote.fusedType) return;
+
+    const fuseGroup = new THREE.Group();
+    let geom;
+    let mat;
+
+    if (remote.fusedType === 'boulder') {
+      geom = new THREE.DodecahedronGeometry(0.55, 1);
+      mat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 });
+    } else if (remote.fusedType === 'bomb_flower') {
+      geom = new THREE.DodecahedronGeometry(0.45, 1);
+      mat = new THREE.MeshStandardMaterial({ color: 0xea580c, emissive: 0x7c2d12, emissiveIntensity: 0.8 });
+    } else {
+      geom = new THREE.CylinderGeometry(0.25, 0.28, 1.4, 8);
+      mat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.8 });
+    }
+
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.castShadow = true;
+    fuseGroup.add(mesh);
+    fuseGroup.position.set(0, 2.6 * (remote.config?.heightScale || 1.0), 0.45);
+    remote.model.add(fuseGroup);
+    remote.fusedMesh = fuseGroup;
   }
 
   // Remote head-slam or special attack
@@ -663,11 +719,106 @@ export class MultiplayerManager {
     this.onScoreCallbacks.forEach((cb) => cb(this.arenaScores));
   }
 
+  // Waypoint Beacon Ping (Key G / Multiplayer Map Ping)
+  broadcastPing(position, color = 0x38bdf8) {
+    const profile = accountSystem.getProfile();
+    this.spawnWaypointBeacon(position, color, profile.username);
+    if (this.currentRoom) {
+      this.broadcast({
+        type: 'WAYPOINT_PING',
+        position: { x: position.x, y: position.y, z: position.z },
+        senderName: profile.username,
+        color
+      });
+    }
+  }
+
+  // Spawn 3D Visual Light Pillar Beacon
+  spawnWaypointBeacon(pos, color = 0x38bdf8, senderName = '') {
+    if (!this.scene || !this.terrain) return;
+
+    const beaconGroup = new THREE.Group();
+    const groundY = this.terrain.getHeight(pos.x, pos.z);
+    beaconGroup.position.set(pos.x, groundY, pos.z);
+
+    // 1. Vertical Light Pillar Beam
+    const beamGeom = new THREE.CylinderGeometry(0.2, 0.45, 90, 16, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const beam = new THREE.Mesh(beamGeom, beamMat);
+    beam.position.y = 45;
+    beaconGroup.add(beam);
+
+    // 2. Glowing Concentric Ground Rings
+    const ringGeom = new THREE.RingGeometry(0.4, 2.4, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.05;
+    beaconGroup.add(ring);
+
+    this.scene.add(beaconGroup);
+
+    this.activeBeacons.push({
+      group: beaconGroup,
+      beam,
+      ring,
+      pos: new THREE.Vector3(pos.x, groundY, pos.z),
+      color,
+      senderName,
+      life: 25.0,
+      maxLife: 25.0
+    });
+
+    if (window.showGameNotification) {
+      const name = senderName ? `${senderName}'s` : 'Evermean';
+      window.showGameNotification(`📍 ${name} Waypoint Beacon deployed at (${Math.round(pos.x)}, ${Math.round(pos.z)})!`);
+    }
+  }
+
+  // Broadcast Colony Building Construction to Peers
+  broadcastBuild(typeId, position) {
+    if (!this.currentRoom) return;
+    this.broadcast({
+      type: 'BUILD_STRUCTURE',
+      typeId,
+      position: { x: position.x, y: position.y, z: position.z }
+    });
+  }
+
   // Called each frame from main game loop
   update(delta) {
+    // 1. Animate and decay active Waypoint Beacons (even in single-player)
+    for (let i = this.activeBeacons.length - 1; i >= 0; i--) {
+      const b = this.activeBeacons[i];
+      b.life -= delta;
+      const progress = b.life / b.maxLife;
+
+      b.ring.rotation.z += delta * 1.5;
+      b.ring.scale.setScalar(1.0 + Math.sin(Date.now() * 0.005) * 0.15);
+      b.beam.material.opacity = Math.min(0.65, progress * 0.8);
+      b.ring.material.opacity = Math.min(0.8, progress * 0.9);
+
+      if (b.life <= 0) {
+        if (this.scene) this.scene.remove(b.group);
+        this.activeBeacons.splice(i, 1);
+      }
+    }
+
     if (!this.currentRoom) return;
 
-    // 1. Broadcast local player state periodically (20 times per sec)
+    // 2. Broadcast local player state periodically (20 times per sec)
     this.syncTimer += delta;
     if (this.syncTimer > 0.05 && this.localPlayer && this.localPlayer.position) {
       this.syncTimer = 0;
@@ -680,11 +831,12 @@ export class MultiplayerManager {
         isAttacking: !!this.localPlayer.isAttacking,
         isDisguised: !!this.localPlayer.isDisguised,
         isBurrowed: !!this.localPlayer.isRootBurrowed,
-        hp: this.localPlayer.barkHp || 100
+        hp: this.localPlayer.barkHp || 100,
+        fusedType: this.localPlayer.fusedItem ? this.localPlayer.fusedItem.type : null
       });
     }
 
-    // 2. Smoothly interpolate remote player positions and rotations
+    // 3. Smoothly interpolate remote player positions and rotations
     this.remotePlayers.forEach((remote) => {
       if (remote.model) {
         remote.model.position.lerp(remote.targetPos, delta * 12);
@@ -700,7 +852,7 @@ export class MultiplayerManager {
       }
     });
 
-    // 3. Prune disconnected / timed-out players after 15 seconds of silence
+    // 4. Prune disconnected / timed-out players after 15 seconds of silence
     const now = Date.now();
     this.remotePlayers.forEach((remote, key) => {
       if (remote.lastSeen && (now - remote.lastSeen > 15000)) {

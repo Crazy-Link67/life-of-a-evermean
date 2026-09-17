@@ -65,7 +65,13 @@ class Game {
     // 4. Initialize Core Expansion Systems
     creatorMode.init(engine.scene, terrain, player, villagers, dayNight, colony, environment);
     arena.init(engine.scene, terrain, player, engine);
-    multiplayer.init(engine.scene, terrain, engine, player);
+    multiplayer.init(engine.scene, terrain, engine, player, colony);
+
+    this.player = player;
+    this.terrain = terrain;
+    this.environment = environment;
+    this.colony = colony;
+    window.game = this;
 
     multiplayer.onRoomChange((roomCode, mode) => {
       if (mode === 'arena') {
@@ -194,12 +200,32 @@ class Game {
       player.launchProjectile(villagers);
     });
 
-    // F: Creator Mode Flight Toggle
+    // E: Ultrahand Magnetic Grip / Release
+    input.onAction('KeyE', () => {
+      if (!this.isGameRunning || this.isPaused || buildMenu.isOpen) return;
+      player.toggleUltrahand(environment);
+    });
+
+    // F: Fuse Item to Evermean Head / Creator Flight
     input.onAction('KeyF', () => {
       if (!this.isGameRunning || this.isPaused) return;
       if (creatorMode.isActive) {
         creatorMode.toggleFlight();
+      } else {
+        player.fuseHeldObject(environment);
       }
+    });
+
+    // G: Deploy Waypoint Beacon Ping (Local & Multiplayer)
+    input.onAction('KeyG', () => {
+      if (!this.isGameRunning || this.isPaused) return;
+      multiplayer.broadcastPing(player.position);
+    });
+
+    // M: Topographic Atlas Map
+    input.onAction('KeyM', () => {
+      if (!this.isGameRunning || this.isPaused) return;
+      hud.toggleMap(player, terrain, multiplayer);
     });
 
     // B: Evermean Civilization Build Menu
@@ -214,9 +240,14 @@ class Game {
       player.toggleCameraMode();
     });
 
-    // Escape: Pause / Main Menu
+    // Escape: Pause / Main Menu / Close Map & Build
     input.onAction('Escape', () => {
       if (!this.isGameRunning) return;
+      const mapOverlay = document.getElementById('topographic-map-overlay');
+      if (mapOverlay && mapOverlay.style.display === 'flex') {
+        hud.closeMap();
+        return;
+      }
       if (buildMenu.isOpen) {
         buildMenu.close();
         return;

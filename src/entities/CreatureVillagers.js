@@ -16,6 +16,8 @@ export class CreatureVillagers {
     this.dondons = [];
     this.foxes = [];
     this.cuccoSwarm = [];
+    this.likelikes = [];
+    this.alertBadges = [];
     this.scene = null;
     this.terrain = null;
     this.animTime = 0;
@@ -31,6 +33,10 @@ export class CreatureVillagers {
     for (let i = 0; i < 7; i++) {
       this.spawnGoblin(65 + (Math.random() - 0.5) * 22, -40 + (Math.random() - 0.5) * 22, i === 0);
     }
+
+    // Spawn Woodland Like-Like Ambush Predators
+    this.spawnLikeLike(35, -15);
+    this.spawnLikeLike(-35, -55);
 
     // 2. Spawn River Beaverfolk around village (x: -28, z: 25)
     for (let i = 0; i < 6; i++) {
@@ -1040,6 +1046,10 @@ export class CreatureVillagers {
 
       if (!isPlayerDisguised && distToPlayer < 20) {
         // Chase player tree monster!
+        if (u.state !== 'chase') {
+          this.showEmotionBadge(g, '!');
+          if (audio && audio.playBokoblinHorn) audio.playBokoblinHorn();
+        }
         u.state = 'chase';
         const dir = new THREE.Vector3().subVectors(playerPos, g.position).normalize();
         g.position.x += dir.x * u.speed * delta;
@@ -1539,6 +1549,47 @@ export class CreatureVillagers {
 
       f.position.y = this.terrain.getHeight(f.position.x, f.position.z);
     });
+
+    // 12. UPDATE WOODLAND LIKE-LIKES (ambush plant predators)
+    this.likelikes.forEach(like => {
+      const u = like.userData;
+      const dist = like.position.distanceTo(playerPos);
+      if (u.attackCooldown > 0) u.attackCooldown -= delta;
+
+      // Pulse glowing weakpoint core bulb
+      if (u.weakpoint) {
+        const pulse = 1.0 + Math.sin(this.animTime * 4.5) * 0.22;
+        u.weakpoint.scale.set(pulse, pulse, pulse);
+      }
+
+      // Snapping lunge if player is close and not disguised
+      if (!isPlayerDisguised && dist < 12.0) {
+        const toPlayer = new THREE.Vector3().subVectors(playerPos, like.position).normalize();
+        like.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+        like.rotation.x = Math.sin(this.animTime * 4) * 0.28;
+
+        if (dist < 3.2 && u.attackCooldown <= 0) {
+          u.attackCooldown = 2.0;
+          audio.playHeadSlam?.(0.6);
+          playerEvermean.takeDamage(22, 'Woodland Like-Like Maw Chomp');
+          engine.applyScreenShake(0.35);
+          engine.spawnParticles(like.position, 18, 0x991b1b, 3, 0.15);
+        }
+      } else {
+        like.rotation.x = 0;
+      }
+    });
+
+    // 13. UPDATE FLOATING ALERT EMOTION BADGES
+    for (let bIdx = this.alertBadges.length - 1; bIdx >= 0; bIdx--) {
+      const b = this.alertBadges[bIdx];
+      b.life -= delta;
+      b.sprite.position.y += delta * 0.7;
+      if (b.life <= 0) {
+        this.scene.remove(b.sprite);
+        this.alertBadges.splice(bIdx, 1);
+      }
+    }
   }
 
   // Interact with or hit Fox
@@ -1748,6 +1799,129 @@ export class CreatureVillagers {
       const idx = this.aerocudas.indexOf(aerocudaMesh);
       if (idx !== -1) this.aerocudas.splice(idx, 1);
     }
+  }
+
+  // Spawn Woodland Like-Like (Zelda TOTK ambush maw predator)
+  spawnLikeLike(x, z) {
+    if (!this.scene || !this.terrain) return;
+    const y = this.terrain.getHeight(x, z);
+    const likeGroup = new THREE.Group();
+    likeGroup.position.set(x, y, z);
+
+    const stalkMat = new THREE.MeshStandardMaterial({
+      color: 0x831843,
+      roughness: 0.6,
+      metalness: 0.1
+    });
+    const rimMat = new THREE.MeshStandardMaterial({
+      color: 0x9f1239,
+      roughness: 0.4
+    });
+
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.5, 0.6, 12), stalkMat);
+    base.position.y = 0.3;
+    likeGroup.add(base);
+
+    const mid = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.2, 0.8, 12), stalkMat);
+    mid.position.y = 0.9;
+    likeGroup.add(mid);
+
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.28, 8, 16), rimMat);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.y = 1.4;
+    likeGroup.add(collar);
+
+    const toothMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.3 });
+    for (let t = 0; t < 8; t++) {
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 5), toothMat);
+      const angle = (t / 8) * Math.PI * 2;
+      tooth.position.set(Math.cos(angle) * 0.7, 1.4, Math.sin(angle) * 0.7);
+      tooth.rotation.z = Math.PI;
+      likeGroup.add(tooth);
+    }
+
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0xf43f5e,
+      emissive: 0xe11d48,
+      emissiveIntensity: 1.2,
+      roughness: 0.2
+    });
+    const weakpoint = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), coreMat);
+    weakpoint.position.y = 1.1;
+    likeGroup.add(weakpoint);
+
+    likeGroup.userData = {
+      type: 'likelike',
+      hp: 90,
+      maxHp: 90,
+      attackCooldown: 0,
+      weakpoint: weakpoint
+    };
+
+    this.scene.add(likeGroup);
+    this.likelikes.push(likeGroup);
+  }
+
+  // Damage Like-Like
+  damageLikeLike(likeMesh, amount, engine, audio, player) {
+    const u = likeMesh.userData;
+    u.hp -= amount;
+    engine.spawnParticles(likeMesh.position, 18, 0x991b1b, 4, 0.15);
+
+    if (u.hp <= 0) {
+      audio.playHeadSlam?.(0.8);
+      engine.spawnParticles(likeMesh.position, 35, 0x9f1239, 6, 0.22);
+      engine.spawnCosmicBurst(likeMesh.position, 30);
+      player.inventory.acorns = (player.inventory.acorns || 0) + 12;
+      player.soilBiomass += 65;
+
+      if (window.showGameNotification) {
+        window.showGameNotification('🌿 Defeated Woodland Like-Like! Acquired +12 Acorns & +65 Biomass');
+      }
+
+      this.scene.remove(likeMesh);
+      const idx = this.likelikes.indexOf(likeMesh);
+      if (idx !== -1) this.likelikes.splice(idx, 1);
+    }
+  }
+
+  // Visual Emotion Alert Badge (Zelda '!' and '?' alert icons)
+  showEmotionBadge(targetMesh, iconText = '!') {
+    if (!targetMesh || !this.scene) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    ctx.beginPath();
+    ctx.arc(64, 56, 44, 0, Math.PI * 2);
+    ctx.fillStyle = iconText === '!' ? '#ef4444' : '#eab308';
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(52, 95);
+    ctx.lineTo(64, 115);
+    ctx.lineTo(76, 95);
+    ctx.fillStyle = iconText === '!' ? '#ef4444' : '#eab308';
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 56px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(iconText, 64, 56);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(1.5, 1.5, 1.5);
+    sprite.position.copy(targetMesh.position);
+    sprite.position.y += 2.8;
+    this.scene.add(sprite);
+    this.alertBadges.push({ sprite, life: 1.8 });
   }
 }
 

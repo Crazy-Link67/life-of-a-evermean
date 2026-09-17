@@ -13,6 +13,13 @@ export class DayNightCycle {
     this.fallenStardustItems = [];
     this.meteorFellTonight = false;
     this.onNewDayCallback = null;
+
+    // Dynamic Weather State Machine
+    this.weather = 'CLEAR'; // 'CLEAR', 'OVERCAST', 'RAIN', 'THUNDERSTORM'
+    this.weatherTimer = 0;
+    this.nextWeatherInterval = 130;
+    this.lightningCooldown = 15;
+    this.pianoTimer = 0;
   }
 
   init(scene, engine) {
@@ -145,7 +152,7 @@ export class DayNightCycle {
       }
     }
 
-    // Sky and Fog Colors
+    // Sky and Fog Colors (Adjusted dynamically for time of day & weather)
     let skyColor = new THREE.Color();
     let fogDensity = 0.007;
 
@@ -166,6 +173,18 @@ export class DayNightCycle {
       fogDensity = 0.009;
     }
 
+    // Blend in weather effects
+    if (this.weather === 'OVERCAST') {
+      skyColor.lerp(new THREE.Color(0x94a3b8), 0.6);
+      fogDensity = 0.011;
+    } else if (this.weather === 'RAIN') {
+      skyColor.lerp(new THREE.Color(0x475569), 0.75);
+      fogDensity = 0.014;
+    } else if (this.weather === 'THUNDERSTORM') {
+      skyColor.lerp(new THREE.Color(0x1e293b), 0.85);
+      fogDensity = 0.017;
+    }
+
     if (this.scene) {
       this.scene.background = skyColor;
       if (this.scene.fog) {
@@ -174,9 +193,41 @@ export class DayNightCycle {
       }
     }
 
+    // Weather timer cycle
+    this.weatherTimer += delta;
+    if (this.weatherTimer > this.nextWeatherInterval) {
+      this.weatherTimer = 0;
+      this.nextWeatherInterval = 120 + Math.random() * 90;
+      const roll = Math.random();
+      if (roll < 0.45) this.setWeather('CLEAR');
+      else if (roll < 0.70) this.setWeather('OVERCAST');
+      else if (roll < 0.88) this.setWeather('RAIN');
+      else this.setWeather('THUNDERSTORM');
+    }
+
+    // Thunderstorm lightning strikes
+    if (this.weather === 'THUNDERSTORM') {
+      this.lightningCooldown -= delta;
+      if (this.lightningCooldown <= 0) {
+        this.lightningCooldown = 12 + Math.random() * 16;
+        if (this.engine) this.engine.triggerLightning(0.3);
+      }
+    }
+
+    // Procedural Zelda Piano Flourish interval during peaceful sylvan travel
+    this.pianoTimer += delta;
+    if (this.pianoTimer > 18) {
+      this.pianoTimer = 0;
+      if (Math.random() < 0.65) {
+        import('../core/AudioManager.js').then(({ audio }) => {
+          audio.playZeldaPianoFlourish(this.isDay() ? 'day' : 'night');
+        });
+      }
+    }
+
     // Night Starfield Opacity
     if (this.starfield) {
-      const nightFactor = !this.isDay() ? 1.0 : 0.0;
+      const nightFactor = !this.isDay() && (this.weather === 'CLEAR') ? 1.0 : 0.0;
       this.starfield.material.opacity = THREE.MathUtils.lerp(this.starfield.material.opacity, nightFactor, delta * 2.0);
       this.starfield.position.copy(playerPos);
       this.starfield.rotation.y += delta * 0.01;
@@ -191,6 +242,21 @@ export class DayNightCycle {
     if (!this.isDay() && !this.meteorFellTonight && this.fallenStardustItems.length === 0 && Math.random() < delta * 0.005) {
       this.meteorFellTonight = true;
       this.spawnMeteor(playerPos);
+    }
+  }
+
+  setWeather(type) {
+    this.weather = type;
+    if (this.engine) {
+      this.engine.setRaining(type === 'RAIN' || type === 'THUNDERSTORM');
+    }
+    import('../core/AudioManager.js').then(({ audio }) => {
+      audio.setWeatherAudio(type);
+    });
+    if (window.showGameNotification) {
+      if (type === 'RAIN') window.showGameNotification('🌧️ Sylvan showers fall over the grove.');
+      else if (type === 'THUNDERSTORM') window.showGameNotification('⛈️ A fierce thunderstorm rolls across the canopy!');
+      else if (type === 'CLEAR') window.showGameNotification('☀️ The skies clear over the forest.');
     }
   }
 

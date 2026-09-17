@@ -56,6 +56,19 @@ export class PlayerEvermean {
     this.terrain = null;
     this.engine = null;
 
+    // Stamina Wheel (Zelda TOTK Sprint & Action Energy)
+    this.maxStamina = 100;
+    this.stamina = 100;
+    this.isExhausted = false;
+    this.exhaustionTimer = 0;
+
+    // Zelda TOTK Ultrahand & Fuse System
+    this.isUltrahandActive = false;
+    this.heldUltrahandObject = null;
+    this.fusedItem = null; // { type, name, durability, maxDurability }
+    this.fusedMeshTP = null;
+    this.fusedMeshFP = null;
+
     // Head-bobbing & root-step timer
     this.stepTimer = 0;
     this.swimTimer = 0;
@@ -123,6 +136,156 @@ export class PlayerEvermean {
     }
   }
 
+  // Zelda TOTK Ultrahand Ability: Magnetic grab & carry loose boulders/items
+  toggleUltrahand(environment) {
+    if (this.isUltrahandActive) {
+      this.isUltrahandActive = false;
+      this.heldUltrahandObject = null;
+      if (this.engine) this.engine.hideUltrahandTether();
+      audio.stopUltrahandHum();
+      if (window.showGameNotification) {
+        window.showGameNotification('✋ Ultrahand Released');
+      }
+      return;
+    }
+
+    if (!environment || !environment.fusableObjects) return;
+    let bestObj = null;
+    let bestDist = 14.0;
+
+    for (const obj of environment.fusableObjects) {
+      const d = obj.position.distanceTo(this.position);
+      if (d < bestDist) {
+        bestDist = d;
+        bestObj = obj;
+      }
+    }
+
+    if (bestObj) {
+      this.isUltrahandActive = true;
+      this.heldUltrahandObject = bestObj;
+      audio.startUltrahandHum();
+      if (window.showGameNotification) {
+        window.showGameNotification(`🟢 Ultrahand Grip: ${bestObj.userData?.name || 'Object'}! (Press F to Fuse to Evermean)`);
+      }
+    } else {
+      if (window.showGameNotification) {
+        window.showGameNotification('❓ No loose objects nearby to grip with Ultrahand.');
+      }
+    }
+  }
+
+  // Zelda TOTK Fuse Ability: Attach held/nearby object to Evermean for enhanced combat
+  fuseHeldObject(environment) {
+    let target = this.heldUltrahandObject;
+    if (!target && environment && environment.fusableObjects) {
+      for (const obj of environment.fusableObjects) {
+        if (obj.position.distanceTo(this.position) < 3.8) {
+          target = obj;
+          break;
+        }
+      }
+    }
+
+    if (!target) {
+      if (window.showGameNotification) {
+        window.showGameNotification('❓ Grab an object with Ultrahand (E) or stand near a Boulder to Fuse (F)!');
+      }
+      return;
+    }
+
+    const u = target.userData || {};
+    const fuseType = u.fuseType || 'boulder';
+    const fuseName = u.name || 'Granite Boulder';
+
+    this.fusedItem = {
+      type: fuseType,
+      name: fuseName,
+      durability: 6,
+      maxDurability: 6
+    };
+
+    if (this.scene && target.parent) {
+      target.parent.remove(target);
+    }
+    if (environment && environment.fusableObjects) {
+      const idx = environment.fusableObjects.indexOf(target);
+      if (idx !== -1) environment.fusableObjects.splice(idx, 1);
+    }
+
+    this.isUltrahandActive = false;
+    this.heldUltrahandObject = null;
+    if (this.engine) {
+      this.engine.hideUltrahandTether();
+      this.engine.spawnCosmicBurst(this.position, 35);
+      this.engine.applyScreenShake(0.4);
+    }
+    audio.stopUltrahandHum();
+    audio.playFuseLatch();
+
+    this.attachFusedMesh();
+
+    if (window.showGameNotification) {
+      window.showGameNotification(`✨ FUSED: ${fuseName} fused to Evermean! (+2.5x Head-Slam Damage & Rock-Breaker)`);
+    }
+  }
+
+  attachFusedMesh() {
+    this.detachFusedMesh();
+    if (!this.fusedItem || !this.thirdPersonModel) return;
+
+    const fuseGroup = new THREE.Group();
+    let geom;
+    let mat;
+
+    if (this.fusedItem.type === 'boulder') {
+      geom = new THREE.DodecahedronGeometry(0.55, 1);
+      mat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 });
+    } else if (this.fusedItem.type === 'bomb_flower') {
+      geom = new THREE.DodecahedronGeometry(0.45, 1);
+      mat = new THREE.MeshStandardMaterial({ color: 0xea580c, emissive: 0x7c2d12, emissiveIntensity: 0.8 });
+    } else {
+      geom = new THREE.CylinderGeometry(0.25, 0.28, 1.4, 8);
+      mat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.8 });
+    }
+
+    const mesh = new THREE.Mesh(geom, mat);
+    fuseGroup.add(mesh);
+
+    // Glowing green Zonai adhesive glue ring
+    const glueRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.38, 0.07, 8, 16),
+      new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 0.95 })
+    );
+    fuseGroup.add(glueRing);
+
+    fuseGroup.position.set(0, 2.6 * (this.growthStage * 0.4 + 0.6), 0.45);
+    this.thirdPersonModel.add(fuseGroup);
+    this.fusedMeshTP = fuseGroup;
+  }
+
+  detachFusedMesh() {
+    if (this.fusedMeshTP && this.thirdPersonModel) {
+      this.thirdPersonModel.remove(this.fusedMeshTP);
+      this.fusedMeshTP = null;
+    }
+  }
+
+  shatterFusedItem() {
+    if (!this.fusedItem) return;
+    const name = this.fusedItem.name;
+    this.fusedItem = null;
+    this.detachFusedMesh();
+    if (this.engine) {
+      this.engine.spawnParticles(this.position, 25, 0x94a3b8, 4, 0.18);
+      this.engine.applyScreenShake(0.3);
+    }
+    audio.playHeadSlam(0.8, false);
+    if (window.showGameNotification) {
+      window.showGameNotification(`💥 Fused ${name} shattered from impact!`);
+    }
+  }
+
   // Head-Slam Attack: The classic TOTK tree monster slam!
   executeHeadSlam(environment, villagers) {
     if (this.isAttacking || this.moisture <= 5) return;
@@ -132,8 +295,25 @@ export class PlayerEvermean {
     const isMantis = this.speciesConfig.hasMantisScythes;
     const power = 1.0 + (this.growthStage - 1) * 0.35;
 
+    let damageMult = 1.0;
+    let radiusMult = 1.0;
+
+    // Zelda TOTK Fused Item Modifiers
+    if (this.fusedItem) {
+      if (this.fusedItem.type === 'boulder') {
+        damageMult = 2.5;
+        this.engine.applyScreenShake(0.85 * power);
+      } else if (this.fusedItem.type === 'bomb_flower') {
+        damageMult = 4.0;
+        this.engine.applyScreenShake(1.25 * power);
+      } else if (this.fusedItem.type === 'log') {
+        radiusMult = 1.6;
+        damageMult = 1.4;
+      }
+    }
+
     // Audio & Screen Shake
-    audio.playHeadSlam(power, isMantis);
+    audio.playHeadSlam(power * damageMult, isMantis);
     this.engine.applyScreenShake(0.5 * power);
 
     // Consume slight stamina/moisture
@@ -144,12 +324,27 @@ export class PlayerEvermean {
     const slamPoint = this.position.clone().addScaledVector(forwardDir, 2.0 * power);
     slamPoint.y = this.terrain.getHeight(slamPoint.x, slamPoint.z);
 
-    this.engine.spawnShockwave(slamPoint, 2.5 * power, this.speciesConfig.glowColor || 0x8b5a2b);
-    this.engine.spawnParticles(slamPoint, 25, 0x654321, 5 * power, 0.18);
+    if (this.fusedItem && this.fusedItem.type === 'bomb_flower') {
+      this.engine.spawnShockwave(slamPoint, 5.0 * power, 0xf97316);
+      this.engine.spawnCosmicBurst(slamPoint, 45);
+      this.shatterFusedItem();
+    } else if (this.fusedItem && this.fusedItem.type === 'boulder') {
+      this.engine.spawnShockwave(slamPoint, 3.8 * power, 0x94a3b8);
+      this.engine.spawnParticles(slamPoint, 30, 0x64748b, 6, 0.22);
+      this.fusedItem.durability--;
+      if (this.fusedItem.durability <= 0) this.shatterFusedItem();
+    } else {
+      this.engine.spawnShockwave(slamPoint, 2.5 * power, this.speciesConfig.glowColor || 0x8b5a2b);
+      this.engine.spawnParticles(slamPoint, 25, 0x654321, 5 * power, 0.18);
+      if (this.fusedItem) {
+        this.fusedItem.durability--;
+        if (this.fusedItem.durability <= 0) this.shatterFusedItem();
+      }
+    }
 
     // Damage bonus if ambushing from camouflage disguise!
     const isSneakStrike = this.isDisguised;
-    const baseDamage = (25 + this.growthStage * 15);
+    const baseDamage = Math.floor((25 + this.growthStage * 15) * damageMult);
 
     if (isSneakStrike) {
       this.engine.applyScreenShake(0.8);
@@ -158,7 +353,7 @@ export class PlayerEvermean {
     }
 
     // 1. Check hitting Woodcutter Goblins
-    const slamRadius = 3.8 * (this.speciesConfig.slamRadiusMult || 1.0);
+    const slamRadius = 3.8 * (this.speciesConfig.slamRadiusMult || 1.0) * radiusMult;
     villagers.goblins.forEach(goblin => {
       if (goblin.position.distanceTo(slamPoint) < slamRadius) {
         const res = villagers.damageGoblin(goblin, baseDamage, this.engine, audio, isSneakStrike);
@@ -212,6 +407,15 @@ export class PlayerEvermean {
         const fox = villagers.foxes[i];
         if (fox.position.distanceTo(slamPoint) < slamRadius) {
           villagers.interactFox(fox, this.engine, audio, this, true);
+        }
+      }
+    }
+
+    if (villagers.likelikes) {
+      for (let i = villagers.likelikes.length - 1; i >= 0; i--) {
+        const like = villagers.likelikes[i];
+        if (like.position.distanceTo(slamPoint) < slamRadius) {
+          villagers.damageLikeLike(like, baseDamage, this.engine, audio, this);
         }
       }
     }
@@ -329,6 +533,14 @@ export class PlayerEvermean {
         const fox = villagers.foxes[i];
         if (fox.position.distanceTo(center) < radius) {
           villagers.interactFox(fox, this.engine, audio, this, true);
+        }
+      }
+    }
+    if (villagers.likelikes) {
+      for (let i = villagers.likelikes.length - 1; i >= 0; i--) {
+        const like = villagers.likelikes[i];
+        if (like.position.distanceTo(center) < radius) {
+          villagers.damageLikeLike(like, damage, this.engine, audio, this);
         }
       }
     }
@@ -597,8 +809,26 @@ export class PlayerEvermean {
       if (isMoving) {
         moveDir.normalize();
 
-        const isSprinting = input.isKeyDown('ShiftLeft') && this.photosynthesis > 5;
-        if (isSprinting) this.photosynthesis -= delta * 8;
+        const canSprint = input.isKeyDown('ShiftLeft') && this.photosynthesis > 4 && !this.isExhausted && this.stamina > 5;
+        const isSprinting = canSprint;
+
+        if (isSprinting) {
+          this.photosynthesis -= delta * 6;
+          this.stamina = Math.max(0, this.stamina - delta * 25);
+          if (this.stamina <= 0) {
+            this.isExhausted = true;
+            this.exhaustionTimer = 2.0;
+          }
+        } else {
+          this.stamina = Math.min(this.maxStamina, this.stamina + delta * 30);
+        }
+
+        if (this.isExhausted) {
+          this.exhaustionTimer -= delta;
+          if (this.exhaustionTimer <= 0) {
+            this.isExhausted = false;
+          }
+        }
 
         const baseSpeed = 5.2 * (this.speciesConfig.speedMult || 1.0);
         const swimSpeedMult = this.speciesConfig.presetKey === 'palm' ? 1.4 : 0.8;
@@ -622,7 +852,16 @@ export class PlayerEvermean {
             this.engine.spawnWaterSplash(this.position, 8);
           } else {
             audio.playRootStep(this.growthStage * 0.15 + 0.85);
+            if (isSprinting && this.engine) {
+              this.engine.spawnParticles(this.position, 2, 0x654321, 1.2, 0.08);
+            }
           }
+        }
+      } else {
+        this.stamina = Math.min(this.maxStamina, this.stamina + delta * 35);
+        if (this.isExhausted) {
+          this.exhaustionTimer -= delta;
+          if (this.exhaustionTimer <= 0) this.isExhausted = false;
         }
       }
 
@@ -852,16 +1091,42 @@ export class PlayerEvermean {
         }
       }
     } else {
-      // Third-person camera behind tree (with anti-clipping terrain height query)
-      const dist = 4.5 + (this.growthStage - 1) * 1.2;
-      const camX = this.position.x - Math.sin(this.yaw) * dist;
-      const camZ = this.position.z - Math.cos(this.yaw) * dist;
+      // Smooth third-person spherical camera with pitch orbit & ground anti-clipping
+      const pitchClamped = Math.max(-0.65, Math.min(1.1, this.pitch));
+      const dist = 4.8 + (this.growthStage - 1) * 1.3;
+      const hDist = dist * Math.cos(pitchClamped);
+      const vDist = dist * Math.sin(pitchClamped);
+      const camX = this.position.x - Math.sin(this.yaw) * hDist;
+      const camZ = this.position.z - Math.cos(this.yaw) * hDist;
       const camGround = this.terrain.getHeight(camX, camZ);
-      const camY = Math.max(camGround + 1.4, this.position.y + 1.2);
+      const camY = Math.max(camGround + 1.2, this.position.y + 1.2 + vDist);
 
-      this.camera.position.set(camX, camY, camZ);
-      this.camera.lookAt(this.position.x, this.position.y + 0.5, this.position.z);
+      const targetCamPos = new THREE.Vector3(camX, camY, camZ);
+      this.camera.position.lerp(targetCamPos, delta * 18);
+      this.camera.lookAt(this.position.x, this.position.y + 0.6, this.position.z);
     }
+
+    // Ultrahand Magnetic Tether & Held Object Physics
+    if (this.isUltrahandActive && this.heldUltrahandObject) {
+      const forward = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+      const holdPos = this.position.clone().addScaledVector(forward, 3.8);
+      const groundH = this.terrain.getHeight(holdPos.x, holdPos.z);
+      holdPos.y = Math.max(groundH + 0.8, this.position.y + 0.5 - this.pitch * 1.5);
+
+      this.heldUltrahandObject.position.lerp(holdPos, delta * 12);
+      if (this.engine) {
+        this.engine.renderUltrahandTether(this.position, this.heldUltrahandObject.position);
+      }
+    } else if (this.engine) {
+      this.engine.hideUltrahandTether();
+    }
+
+    // Dynamic Sylvan River & Lake running water proximity audio
+    const riverX = Math.sin(this.position.z * 0.025) * 28.0;
+    const distToRiver = Math.abs(this.position.x - riverX);
+    const distToLake = Math.hypot(this.position.x, this.position.z - 65);
+    const minWaterDist = Math.min(distToRiver, distToLake);
+    audio.updateWaterProximity(minWaterDist);
   }
 }
 

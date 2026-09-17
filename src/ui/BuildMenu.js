@@ -1,5 +1,6 @@
 import { colony } from '../entities/EvermeanColony.js';
 import { audio } from '../core/AudioManager.js';
+import { multiplayer } from '../net/MultiplayerManager.js';
 
 // Evermean Grove Construction Menu
 export class BuildMenu {
@@ -211,6 +212,7 @@ export class BuildMenu {
       this.engine.spawnParticles(buildPos, 25, 0x8b5a2b, 4, 0.2);
       this.updateResources();
       this.close();
+      multiplayer.broadcastBuild(typeId, buildPos);
     } else {
       alert(`Cannot build: ${res.reason}`);
     }

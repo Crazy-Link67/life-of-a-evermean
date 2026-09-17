@@ -16,6 +16,16 @@ export class AudioManager {
 
     this.ambientNodes = [];
     this.isInitialized = false;
+
+    // Weather & Dynamic Soundscape Nodes
+    this.rainGain = null;
+    this.rainSource = null;
+    this.waterGain = null;
+    this.waterSource = null;
+    this.ultrahandOsc = null;
+    this.ultrahandGain = null;
+    this.currentWeather = 'CLEAR';
+    this.lastPianoTime = 0;
   }
 
   init() {
@@ -41,6 +51,7 @@ export class AudioManager {
       this.musicGain.connect(this.masterGain);
 
       this.startAmbientSoundscape();
+      this.initWeatherAndWaterAudio();
       this.isInitialized = true;
     } catch (e) {
       console.warn('Web Audio could not be initialized:', e);
@@ -523,6 +534,272 @@ export class AudioManager {
     gain.connect(this.ambientGain);
     osc.start(t);
     osc.stop(t + 0.15);
+  }
+
+  initWeatherAndWaterAudio() {
+    if (!this.ctx) return;
+
+    // 1. Looping Rain Noise Node
+    const rainNoiseBuffer = this.createNoiseBuffer(2.0);
+    if (rainNoiseBuffer) {
+      this.rainSource = this.ctx.createBufferSource();
+      this.rainSource.buffer = rainNoiseBuffer;
+      this.rainSource.loop = true;
+
+      const rainFilter = this.ctx.createBiquadFilter();
+      rainFilter.type = 'bandpass';
+      rainFilter.frequency.value = 1100;
+      rainFilter.Q.value = 0.85;
+
+      this.rainGain = this.ctx.createGain();
+      this.rainGain.gain.value = 0.0001; // silent initially
+
+      this.rainSource.connect(rainFilter);
+      rainFilter.connect(this.rainGain);
+      this.rainGain.connect(this.ambientGain);
+      this.rainSource.start();
+    }
+
+    // 2. Looping River / Lake Running Water Sound Node
+    const waterNoiseBuffer = this.createNoiseBuffer(2.0);
+    if (waterNoiseBuffer) {
+      this.waterSource = this.ctx.createBufferSource();
+      this.waterSource.buffer = waterNoiseBuffer;
+      this.waterSource.loop = true;
+
+      const waterFilter = this.ctx.createBiquadFilter();
+      waterFilter.type = 'lowpass';
+      waterFilter.frequency.value = 480;
+
+      this.waterGain = this.ctx.createGain();
+      this.waterGain.gain.value = 0.0001;
+
+      this.waterSource.connect(waterFilter);
+      waterFilter.connect(this.waterGain);
+      this.waterGain.connect(this.ambientGain);
+      this.waterSource.start();
+    }
+  }
+
+  setWeatherAudio(weatherType) {
+    this.currentWeather = weatherType;
+    if (!this.ctx || !this.rainGain) return;
+
+    const t = this.ctx.currentTime;
+    let targetRainVol = 0.0001;
+    if (weatherType === 'RAIN') {
+      targetRainVol = 0.28;
+    } else if (weatherType === 'THUNDERSTORM') {
+      targetRainVol = 0.42;
+    }
+
+    this.rainGain.gain.setTargetAtTime(targetRainVol, t, 1.2);
+  }
+
+  // Update river water trickling volume based on distance to river or lake (0 - 18 meters)
+  updateWaterProximity(distanceToWater) {
+    if (!this.ctx || !this.waterGain) return;
+    const t = this.ctx.currentTime;
+    let vol = 0.0001;
+    if (distanceToWater < 18.0) {
+      vol = Math.max(0.0001, (1.0 - (distanceToWater / 18.0)) * 0.26);
+    }
+    this.waterGain.gain.setTargetAtTime(vol, t, 0.4);
+  }
+
+  // Rolling Thunder sound with sub-bass crash and trailing echo
+  playThunder(distance = 1.0) {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Sub rumble oscillator
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'triangle';
+    subOsc.frequency.setValueAtTime(65, t);
+    subOsc.frequency.exponentialRampToValueAtTime(22, t + 1.2);
+
+    const distFactor = Math.max(0.2, 1.0 - distance * 0.4);
+    subGain.gain.setValueAtTime(0.6 * distFactor, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.sfxGain);
+    subOsc.start(t);
+    subOsc.stop(t + 2.0);
+
+    // Crackle noise burst
+    const noiseBuffer = this.createNoiseBuffer(0.9);
+    if (noiseBuffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(450, t);
+      filter.frequency.linearRampToValueAtTime(120, t + 0.9);
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.35 * distFactor, t);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+
+      noise.connect(filter);
+      filter.connect(nGain);
+      nGain.connect(this.sfxGain);
+      noise.start(t);
+    }
+  }
+
+  // Zelda TOTK Ultrahand Magnetic Beam Hum
+  startUltrahandHum() {
+    if (!this.ctx || this.ultrahandOsc) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    this.ultrahandOsc = this.ctx.createOscillator();
+    this.ultrahandGain = this.ctx.createGain();
+
+    this.ultrahandOsc.type = 'sine';
+    this.ultrahandOsc.frequency.setValueAtTime(320, t);
+
+    this.ultrahandGain.gain.setValueAtTime(0.001, t);
+    this.ultrahandGain.gain.linearRampToValueAtTime(0.18, t + 0.15);
+
+    this.ultrahandOsc.connect(this.ultrahandGain);
+    this.ultrahandGain.connect(this.sfxGain);
+    this.ultrahandOsc.start(t);
+  }
+
+  stopUltrahandHum() {
+    if (!this.ctx || !this.ultrahandOsc) return;
+    const t = this.ctx.currentTime;
+    if (this.ultrahandGain) {
+      this.ultrahandGain.gain.linearRampToValueAtTime(0.001, t + 0.1);
+    }
+    setTimeout(() => {
+      try {
+        if (this.ultrahandOsc) {
+          this.ultrahandOsc.stop();
+          this.ultrahandOsc.disconnect();
+          this.ultrahandOsc = null;
+        }
+      } catch (e) {}
+    }, 120);
+  }
+
+  // Zelda TOTK Fuse Latch Chime (The signature Zonai latch sound)
+  playFuseLatch() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Dual-tone Zonai chime
+    [587.33, 880.0, 1174.66].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.08);
+
+      gain.gain.setValueAtTime(0.22, t + idx * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + idx * 0.08);
+      osc.stop(t + idx * 0.08 + 0.45);
+    });
+  }
+
+  // Bokoblin Alert Horn blast
+  playBokoblinHorn() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+
+    osc.frequency.setValueAtTime(145, t);
+    osc.frequency.linearRampToValueAtTime(175, t + 0.15);
+    osc.frequency.linearRampToValueAtTime(160, t + 0.45);
+
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.6);
+  }
+
+  // Yahaha! Korok Chime
+  playKorokYahaha() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(1320, t);
+    osc1.frequency.exponentialRampToValueAtTime(1760, t + 0.1);
+
+    gain1.gain.setValueAtTime(0.25, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+    osc1.connect(gain1);
+    gain1.connect(this.sfxGain);
+    osc1.start(t);
+    osc1.stop(t + 0.22);
+
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(2093, t + 0.12);
+    gain2.gain.setValueAtTime(0.25, t + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+    osc2.connect(gain2);
+    gain2.connect(this.sfxGain);
+    osc2.start(t + 0.12);
+    osc2.stop(t + 0.38);
+  }
+
+  // Procedural Zelda BOTW / TOTK Melodic Piano Flourish
+  playZeldaPianoFlourish(theme = 'day') {
+    if (!this.ctx) return;
+    this.resume();
+    const now = Date.now();
+    if (now - this.lastPianoTime < 7000) return; // Sparse, thoughtful pauses between phrases
+    this.lastPianoTime = now;
+
+    const t = this.ctx.currentTime;
+
+    // Pentatonic scale frequencies
+    const dayScale = [293.66, 369.99, 440.0, 493.88, 587.33, 739.99]; // D major / Lydian
+    const nightScale = [220.0, 261.63, 329.63, 392.0, 440.0, 523.25]; // A minor sylvan
+    const scale = theme === 'night' ? nightScale : dayScale;
+
+    // Pick 3 to 4 notes to play in gentle succession
+    const noteCount = 3 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < noteCount; i++) {
+      const noteFreq = scale[Math.floor(Math.random() * scale.length)];
+      const noteDelay = i * (0.24 + Math.random() * 0.18);
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(noteFreq, t + noteDelay);
+
+      // Piano envelope: fast attack, warm sustain, long gentle decay
+      gain.gain.setValueAtTime(0.12, t + noteDelay);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + noteDelay + 1.4);
+
+      osc.connect(gain);
+      gain.connect(this.musicGain);
+      osc.start(t + noteDelay);
+      osc.stop(t + noteDelay + 1.5);
+    }
   }
 }
 

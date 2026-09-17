@@ -93,29 +93,31 @@ export class EvermeanColony {
   }
 
   // Build a structure at the specified position
-  buildStructure(typeId, position, playerEvermean) {
+  buildStructure(typeId, position, playerEvermean, isRemote = false) {
     const bp = this.blueprints[typeId];
     if (!bp) return { success: false, reason: 'Unknown structure type' };
 
-    // Check resource requirements
-    if (playerEvermean.inventory.wood < bp.woodCost) {
-      return { success: false, reason: `Need ${bp.woodCost} Wood (have ${playerEvermean.inventory.wood})` };
-    }
-    if (playerEvermean.soilBiomass < bp.biomassCost) {
-      return { success: false, reason: `Need ${bp.biomassCost} Biomass (have ${Math.floor(playerEvermean.soilBiomass)})` };
-    }
-    if (bp.stardustCost > 0 && playerEvermean.inventory.stardust < bp.stardustCost) {
-      return { success: false, reason: `Need ${bp.stardustCost} Cosmic Stardust (have ${playerEvermean.inventory.stardust})` };
-    }
-    if (bp.korokCost > 0 && (playerEvermean.inventory.korokSeeds || 0) < bp.korokCost) {
-      return { success: false, reason: `Need ${bp.korokCost} Korok Seed (have ${playerEvermean.inventory.korokSeeds || 0})` };
-    }
+    if (!isRemote && playerEvermean) {
+      // Check resource requirements
+      if (playerEvermean.inventory.wood < bp.woodCost) {
+        return { success: false, reason: `Need ${bp.woodCost} Wood (have ${playerEvermean.inventory.wood})` };
+      }
+      if (playerEvermean.soilBiomass < bp.biomassCost) {
+        return { success: false, reason: `Need ${bp.biomassCost} Biomass (have ${Math.floor(playerEvermean.soilBiomass)})` };
+      }
+      if (bp.stardustCost > 0 && playerEvermean.inventory.stardust < bp.stardustCost) {
+        return { success: false, reason: `Need ${bp.stardustCost} Cosmic Stardust (have ${playerEvermean.inventory.stardust})` };
+      }
+      if (bp.korokCost > 0 && (playerEvermean.inventory.korokSeeds || 0) < bp.korokCost) {
+        return { success: false, reason: `Need ${bp.korokCost} Korok Seed (have ${playerEvermean.inventory.korokSeeds || 0})` };
+      }
 
-    // Deduct resources
-    playerEvermean.inventory.wood -= bp.woodCost;
-    playerEvermean.soilBiomass -= bp.biomassCost;
-    if (bp.stardustCost > 0) playerEvermean.inventory.stardust -= bp.stardustCost;
-    if (bp.korokCost > 0) playerEvermean.inventory.korokSeeds -= bp.korokCost;
+      // Deduct resources
+      playerEvermean.inventory.wood -= bp.woodCost;
+      playerEvermean.soilBiomass -= bp.biomassCost;
+      if (bp.stardustCost > 0) playerEvermean.inventory.stardust -= bp.stardustCost;
+      if (bp.korokCost > 0) playerEvermean.inventory.korokSeeds -= bp.korokCost;
+    }
 
     // Create 3D Structure Mesh
     const structGroup = new THREE.Group();

@@ -276,6 +276,15 @@ export class HUD {
         }
       </style>
 
+      <!-- Underwater Vignette & Diving Tint -->
+      <div id="underwater-overlay" style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at center, rgba(6, 182, 212, 0.18) 0%, rgba(2, 132, 199, 0.48) 60%, rgba(15, 23, 42, 0.85) 100%); opacity: 0; transition: opacity 0.35s ease; z-index: 4;">
+        <div style="position: absolute; bottom: 65px; left: 50%; transform: translateX(-50%); background: rgba(8, 51, 68, 0.88); border: 1.5px solid #38bdf8; border-radius: 20px; padding: 6px 16px; color: #bae6fd; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 8px;">
+          <span>🌊 SUBMERGED DIVING</span>
+          <span style="background: rgba(56, 189, 248, 0.25); padding: 2px 6px; border-radius: 4px; color: #fff;">[Space] Paddle Up</span>
+          <span style="background: rgba(56, 189, 248, 0.25); padding: 2px 6px; border-radius: 4px; color: #fff;">[Ctrl/C] Dive Deeper</span>
+        </div>
+      </div>
+
       <!-- Top Compass Bar (Zelda TOTK Style) -->
       <div id="hud-compass-bar" style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 340px; height: 26px; background: rgba(18, 14, 10, 0.88); backdrop-filter: blur(8px); border: 1px solid rgba(139, 90, 43, 0.5); border-radius: 13px; overflow: hidden; pointer-events: none; z-index: 10; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
         <div style="position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #facc15; transform: translateX(-50%); z-index: 3; box-shadow: 0 0 6px #facc15;"></div>
@@ -619,8 +628,8 @@ export class HUD {
         const rect = mapCanvas.getBoundingClientRect();
         const clickX = (e.clientX - rect.left) / rect.width;
         const clickY = (e.clientY - rect.top) / rect.height;
-        const worldMin = -100;
-        const worldSpan = 200;
+        const worldMin = -320;
+        const worldSpan = 640;
         const targetX = worldMin + clickX * worldSpan;
         const targetZ = worldMin + clickY * worldSpan;
         if (multiplayer) {
@@ -668,6 +677,12 @@ export class HUD {
     const biomassPct = Math.min(100, (player.soilBiomass % 100));
     document.getElementById('biomass-bar').style.width = `${biomassPct}%`;
     document.getElementById('biomass-val').textContent = `${Math.floor(player.soilBiomass)} Bio`;
+
+    // Underwater Diving Screen Overlay
+    const underwaterOverlay = document.getElementById('underwater-overlay');
+    if (underwaterOverlay) {
+      underwaterOverlay.style.opacity = player.isUnderwater ? '1' : '0';
+    }
 
     // 2. Day / Night Banner & Arena Colosseum Banner
     const isArena = arena.isActive || multiplayer.roomMode === 'arena';
@@ -852,11 +867,22 @@ export class HUD {
       { name: 'E', yaw: Math.PI / 2, color: '#d1b89d', isCardinal: true },
       { name: 'S', yaw: Math.PI, color: '#d1b89d', isCardinal: true },
       { name: 'W', yaw: -Math.PI / 2, color: '#d1b89d', isCardinal: true },
-      { name: '🏝️ Sky', x: 50, z: 60, color: '#38bdf8' },
-      { name: '🕳️ Chasm', x: 75, z: 70, color: '#a855f7' },
-      { name: '🦫 Beaver', x: -28, z: 25, color: '#f97316' },
-      { name: '💧 Lake', x: 0, z: 65, color: '#06b6d4' },
-      { name: '👹 Camp', x: 65, z: -40, color: '#ef4444' }
+      // Shrines
+      { name: '⛩️ Roots Shrine', x: 35, z: -35, color: '#34d399' },
+      { name: '⛩️ Magnet Shrine', x: -40, z: 25, color: '#34d399' },
+      { name: '⛩️ Time Shrine', x: 35, z: 110, color: '#34d399' },
+      { name: '⛩️ Water Shrine', x: -15, z: 75, color: '#38bdf8' },
+      { name: '⛩️ Flame Shrine', x: 180, z: -120, color: '#f97316' },
+      // Battling Camps
+      { name: '🪓 Woodcutter Camp', x: 75, z: -50, color: '#ef4444' },
+      { name: '💀 Skull Fortress', x: -180, z: -150, color: '#dc2626' },
+      { name: '🛶 River Marauders', x: -70, z: 130, color: '#ea580c' },
+      { name: '🏰 Castle Ruins', x: 190, z: -140, color: '#b91c1c' },
+      // World Features
+      { name: '🕳️ Gloom Chasm', x: 120, z: 120, color: '#a855f7' },
+      { name: '💧 Sylvan Lake', x: 0, z: 75, color: '#06b6d4' },
+      { name: '🦫 Beaver Village', x: -35, z: 30, color: '#fb923c' },
+      { name: '🏝️ Sky Islands', x: 10, z: 45, color: '#38bdf8' }
     ];
 
     if (multiplayer && multiplayer.activeBeacons) {
@@ -974,69 +1000,79 @@ export class HUD {
     ctx.fillStyle = '#eedfc5';
     ctx.fillRect(0, 0, w, h);
 
-    const worldMin = -100;
-    const worldSpan = 200;
+    const worldMin = -320;
+    const worldSpan = 640;
     const toCanvasX = (wx) => ((wx - worldMin) / worldSpan) * w;
     const toCanvasY = (wz) => ((wz - worldMin) / worldSpan) * h;
 
     // Topographic contour rings
     ctx.strokeStyle = '#d7c4a3';
     ctx.lineWidth = 1.5;
-    for (let r = 15; r <= 85; r += 14) {
+    for (let r = 40; r <= 280; r += 45) {
       ctx.beginPath();
-      ctx.arc(toCanvasX(20), toCanvasY(20), (r / worldSpan) * w, 0, Math.PI * 2);
+      ctx.arc(toCanvasX(0), toCanvasY(0), (r / worldSpan) * w, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Sylvan River
+    // Sylvan River Channel
     ctx.beginPath();
     ctx.strokeStyle = '#60a5fa';
-    ctx.lineWidth = Math.max(6, (12 / worldSpan) * w);
+    ctx.lineWidth = Math.max(5, (16 / worldSpan) * w);
     ctx.lineCap = 'round';
-    for (let z = -90; z <= 90; z += 5) {
-      const rx = Math.sin(z * 0.025) * 28.0;
+    for (let z = -280; z <= 280; z += 10) {
+      const rx = Math.sin(z * 0.018) * 42.0;
       const cx = toCanvasX(rx);
       const cy = toCanvasY(z);
-      if (z === -90) ctx.moveTo(cx, cy);
+      if (z === -280) ctx.moveTo(cx, cy);
       else ctx.lineTo(cx, cy);
     }
     ctx.stroke();
 
-    // Sylvan Lake
-    ctx.fillStyle = 'rgba(96, 165, 250, 0.4)';
+    // Central Sylvan Lake (Deep Diving Basin)
+    ctx.fillStyle = 'rgba(96, 165, 250, 0.45)';
     ctx.beginPath();
-    ctx.arc(toCanvasX(0), toCanvasY(65), (22 / worldSpan) * w, 0, Math.PI * 2);
+    ctx.arc(toCanvasX(0), toCanvasY(75), (56 / worldSpan) * w, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeStyle = '#0284c7';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Ancient Chasm crater
-    ctx.fillStyle = 'rgba(126, 34, 206, 0.35)';
+    // Ancient Gloom Chasm Crater (Plunges to Depths at y = -90)
+    ctx.fillStyle = 'rgba(126, 34, 206, 0.45)';
     ctx.beginPath();
-    ctx.arc(toCanvasX(75), toCanvasY(70), (14 / worldSpan) * w, 0, Math.PI * 2);
+    ctx.arc(toCanvasX(120), toCanvasY(120), (28 / worldSpan) * w, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#9333ea';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Landmarks
+    // Landmarks: 5 Camps, 5 Shrines, Village & Sky
     const landmarks = [
-      { name: 'Sky Islands', x: 50, z: 60, icon: '🏝️' },
-      { name: 'Ancient Chasm', x: 75, z: 70, icon: '🕳️' },
-      { name: 'Beaver Village', x: -28, z: 25, icon: '🦫' },
-      { name: 'Bokoblin Camp', x: 65, z: -40, icon: '👹' },
-      { name: 'Sylvan Lake', x: 0, z: 65, icon: '💧' }
+      { name: 'Sky Islands', x: 10, z: 45, icon: '🏝️' },
+      { name: 'Gloom Chasm', x: 120, z: 120, icon: '🕳️' },
+      { name: 'Beaver Village', x: -35, z: 30, icon: '🦫' },
+      { name: 'Sylvan Lake', x: 0, z: 75, icon: '💧' },
+      // 5 Battling Camps
+      { name: 'Woodcutter Camp', x: 75, z: -50, icon: '🪓' },
+      { name: 'Skull Fortress', x: -180, z: -150, icon: '💀' },
+      { name: 'River Marauders', x: -70, z: 130, icon: '🛶' },
+      { name: 'Castle Stronghold', x: 190, z: -140, icon: '🏰' },
+      // 5 Ancient Zonai Shrines
+      { name: 'Roots Shrine', x: 35, z: -35, icon: '⛩️' },
+      { name: 'Magnet Shrine', x: -40, z: 25, icon: '⛩️' },
+      { name: 'Time Shrine', x: 35, z: 110, icon: '⛩️' },
+      { name: 'Water Shrine', x: -15, z: 75, icon: '⛩️' },
+      { name: 'Flame Shrine', x: 180, z: -120, icon: '⛩️' }
     ];
 
-    ctx.font = 'bold 12px serif';
+    ctx.font = 'bold 11px serif';
     ctx.textAlign = 'center';
     landmarks.forEach((lm) => {
       const cx = toCanvasX(lm.x);
       const cy = toCanvasY(lm.z);
       ctx.fillText(lm.icon, cx, cy);
       ctx.fillStyle = '#451a03';
-      ctx.fillText(lm.name, cx, cy + 13);
+      ctx.fillText(lm.name, cx, cy + 12);
     });
 
     // Active Waypoint Beacons

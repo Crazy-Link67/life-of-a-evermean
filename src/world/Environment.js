@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { TextureGenerator } from '../core/TextureGenerator.js';
+import { collision } from '../core/Collision.js';
 
-// Procedural World Environment: Ordinary forest trees, Goblin outpost, Beaverfolk stilt village, Instanced grass, and Korok puzzles
+// Procedural World Environment: Realistic forest trees, 5 Battling camps, Beaverfolk stilt village,
+// Proper Chasm & Depths Underworld, Underwater diving features, Full solid logs, and Korok puzzles
 export class Environment {
   constructor() {
     this.trees = [];
@@ -18,28 +20,40 @@ export class Environment {
     this.skyIslands = [];
     this.fusableObjects = [];
     this.chasmCavern = null;
-    this.goblinCampCenter = new THREE.Vector3(65, 0, -40);
-    this.beaverVillageCenter = new THREE.Vector3(-28, 0, 25);
+    this.lightroot = null;
+    this.depthsLaunchPad = null;
+    this.underwaterChests = [];
+
+    // 5 Unique Battling Camps across the enlarged 640m map
+    this.goblinCampCenter = new THREE.Vector3(75, 0, -50);          // Camp 1: Woodcutter Goblin Outpost
+    this.mountainFortressCenter = new THREE.Vector3(-180, 0, -150); // Camp 2: Mountain Skull Fortress
+    this.riverMarauderCenter = new THREE.Vector3(-70, 0, 130);      // Camp 3: River Marauder Encampment
+    this.ruinedCastleCenter = new THREE.Vector3(190, 0, -140);      // Camp 4: Ruined Castle Stronghold
+    this.depthsCampCenter = new THREE.Vector3(130, -90, 130);       // Camp 5: Depths Gloom Excavation Camp
+    this.beaverVillageCenter = new THREE.Vector3(-35, 0, 30);       // Peaceful Beaverfolk Village
   }
 
   generate(scene, terrain) {
     this.scene = scene;
     this.terrain = terrain;
 
-    // 1. Scatter Ordinary Forest Trees (for Evermean Camouflage & Harvesting)
-    this.spawnNormalForestTrees(180);
+    // Reset solid collision obstacles
+    collision.clear();
 
-    // 2. Build Woodcutter Goblin Encampment
-    this.buildGoblinCamp();
+    // 1. Scatter Realistic Forest Trees (Oaks, Birches, Pines with collision)
+    this.spawnNormalForestTrees(280);
+
+    // 2. Build All 5 Battling Camps across the world
+    this.buildAllCamps();
 
     // 3. Build River Beaverfolk Stilt Village
     this.buildBeaverVillage();
 
     // 4. Scatter Survival Foragables (Rare Dew drops, Compost, Acorns)
-    this.spawnForagables(18);
+    this.spawnForagables(32);
 
     // 5. Scatter 3D Instanced Wind-blown Grass Tufts & Wildflowers
-    this.spawnInstancedFoliage(1400);
+    this.spawnInstancedFoliage(2400);
 
     // 6. Spawn Interactive Zelda-style Korok Puzzles
     this.spawnKorokPuzzles();
@@ -48,118 +62,179 @@ export class Environment {
     this.spawnAncientRuins();
 
     // 8. Glowing Bioluminescent Mushroom Groves
-    this.spawnGlowingMushrooms(22);
+    this.spawnGlowingMushrooms(35);
 
-    // 9. Mossy Granite Boulders & Fallen Logs (Fusable objects)
-    this.spawnRockFormations(50);
-    this.spawnFallenLogs(25);
+    // 9. Mossy Granite Boulders & Full Solid Cylindrical Fallen Logs
+    this.spawnRockFormations(80);
+    this.spawnFallenLogs(40);
 
     // 10. Water Lily Pads & Shoreline Reeds
     this.spawnWaterFlora();
 
-    // 11. Goblin Encampment Campfire
+    // 11. Goblin Encampment Campfire & Fortress Torches
     this.spawnCampfire();
 
     // 12. Floating Forest Fireflies
-    this.spawnFireflies(120);
+    this.spawnFireflies(160);
 
     // 13. Zelda: Tears of the Kingdom Legendary Flora & Zonai Devices
-    this.spawnSundelions(16);
-    this.spawnSilentPrincesses(8);
-    this.spawnBombFlowers(12);
-    this.spawnPoes(18);
+    this.spawnSundelions(24);
+    this.spawnSilentPrincesses(12);
+    this.spawnBombFlowers(20);
+    this.spawnPoes(35);
     this.spawnZonaiBoostPads();
     this.spawnGloomPuddles();
 
     // 14. Floating Sylvan Sky Islands & Cascading Waterfalls
     this.spawnSkyIslands();
 
-    // 15. Subterranean Root Chasm Cavern & Glowing Crystals
-    this.spawnChasmCavern();
+    // 15. Proper Gloom Chasm Abyss & The Depths Underworld Realm (y = -90)
+    this.spawnProperChasmAndDepths();
+
+    // 16. Deep Underwater Features & Sunken Treasure Chests
+    this.spawnUnderwaterFeatures();
   }
 
-  // Ordinary forest trees that the player blends into
+  // Ordinary forest trees with rich procedural textures, branching boughs, and solid collision
   spawnNormalForestTrees(count) {
-    const barkTex = TextureGenerator.createBarkTexture(0x4a3728);
+    const oakBarkTex = TextureGenerator.createBarkTexture(0x4a3728);
     const barkNormal = TextureGenerator.createBarkNormalMap();
-    const birchBarkTex = TextureGenerator.createBarkTexture(0xdfdad0);
+    const birchBarkTex = TextureGenerator.createBirchBarkTexture();
+    const pineBarkTex = TextureGenerator.createBarkTexture(0x5c2c16);
 
-    const trunkMat = new THREE.MeshStandardMaterial({
-      map: barkTex,
+    const oakTrunkMat = new THREE.MeshStandardMaterial({
+      map: oakBarkTex,
       normalMap: barkNormal,
-      normalScale: new THREE.Vector2(0.6, 0.6),
-      roughness: 0.85
-    });
-    const leafMat = new THREE.MeshStandardMaterial({
-      color: 0x2e7d32,
-      roughness: 0.65,
-      flatShading: false
+      normalScale: new THREE.Vector2(0.7, 0.7),
+      roughness: 0.88
     });
     const birchTrunkMat = new THREE.MeshStandardMaterial({
       map: birchBarkTex,
       normalMap: barkNormal,
-      normalScale: new THREE.Vector2(0.5, 0.5),
+      normalScale: new THREE.Vector2(0.6, 0.6),
       roughness: 0.75
     });
-    const birchLeafMat = new THREE.MeshStandardMaterial({
-      color: 0x7cb342,
-      roughness: 0.65,
-      flatShading: false
+    const pineTrunkMat = new THREE.MeshStandardMaterial({
+      map: pineBarkTex,
+      normalMap: barkNormal,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+      roughness: 0.9
     });
 
-    for (let i = 0; i < count; i++) {
-      const x = (Math.random() - 0.5) * (this.terrain.size - 40);
-      const z = (Math.random() - 0.5) * (this.terrain.size - 40);
+    const oakLeafTex = TextureGenerator.createLeafTexture(0x28631f, 0x86efac);
+    const birchLeafTex = TextureGenerator.createLeafTexture(0x65a30d, 0xdcfce7);
+    const pineLeafTex = TextureGenerator.createLeafTexture(0x14532d, 0x4ade80);
 
-      // Don't spawn inside deep water or on top of villages
+    const oakLeafMat = new THREE.MeshStandardMaterial({ map: oakLeafTex, roughness: 0.65 });
+    const birchLeafMat = new THREE.MeshStandardMaterial({ map: birchLeafTex, roughness: 0.6 });
+    const pineLeafMat = new THREE.MeshStandardMaterial({ map: pineLeafTex, roughness: 0.7 });
+
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 60);
+
+      // Don't spawn inside deep water or on top of camp centers
       if (this.terrain.isWater(x, z)) continue;
-      if (Math.hypot(x - this.goblinCampCenter.x, z - this.goblinCampCenter.z) < 22) continue;
-      if (Math.hypot(x - this.beaverVillageCenter.x, z - this.beaverVillageCenter.z) < 18) continue;
+      if (Math.hypot(x - this.goblinCampCenter.x, z - this.goblinCampCenter.z) < 24) continue;
+      if (Math.hypot(x - this.mountainFortressCenter.x, z - this.mountainFortressCenter.z) < 32) continue;
+      if (Math.hypot(x - this.riverMarauderCenter.x, z - this.riverMarauderCenter.z) < 26) continue;
+      if (Math.hypot(x - this.ruinedCastleCenter.x, z - this.ruinedCastleCenter.z) < 30) continue;
+      if (Math.hypot(x - this.beaverVillageCenter.x, z - this.beaverVillageCenter.z) < 20) continue;
+      if (Math.hypot(x - this.terrain.chasmCenter.x, z - this.terrain.chasmCenter.y) < 32) continue;
 
       const y = this.terrain.getHeight(x, z);
-      const isBirch = Math.random() < 0.35;
-      const height = 3.5 + Math.random() * 2.5;
+      const rnd = Math.random();
+      const isBirch = rnd < 0.3;
+      const isPine = rnd >= 0.3 && rnd < 0.6;
+      const isOak = rnd >= 0.6;
+
+      const height = isPine ? 5.5 + Math.random() * 3.0 : 3.8 + Math.random() * 2.4;
+      const trunkRadius = isPine ? 0.32 : (isOak ? 0.45 : 0.28);
 
       const treeGroup = new THREE.Group();
       treeGroup.position.set(x, y, z);
 
       // Trunk
-      const trunkGeom = new THREE.CylinderGeometry(0.25, 0.4, height, 7);
-      const trunk = new THREE.Mesh(trunkGeom, isBirch ? birchTrunkMat : trunkMat);
+      const trunkMat = isBirch ? birchTrunkMat : (isPine ? pineTrunkMat : oakTrunkMat);
+      const trunkGeom = new THREE.CylinderGeometry(trunkRadius * 0.75, trunkRadius, height, 8);
+      const trunk = new THREE.Mesh(trunkGeom, trunkMat);
       trunk.position.y = height * 0.5;
       trunk.castShadow = true;
       trunk.receiveShadow = true;
       treeGroup.add(trunk);
 
-      // Canopy
-      const leafCount = 4 + Math.floor(Math.random() * 3);
-      for (let l = 0; l < leafCount; l++) {
-        const leafGeom = new THREE.DodecahedronGeometry(1.2 + Math.random() * 0.6, 1);
-        const foliage = new THREE.Mesh(leafGeom, isBirch ? birchLeafMat : leafMat);
-        foliage.position.set(
-          (Math.random() - 0.5) * 1.5,
-          height + (Math.random() - 0.2) * 1.5,
-          (Math.random() - 0.5) * 1.5
-        );
-        foliage.castShadow = true;
-        treeGroup.add(foliage);
+      // Branch boughs
+      for (let b = 0; b < 3; b++) {
+        const bAngle = (b / 3) * Math.PI * 2 + Math.random() * 0.5;
+        const bLen = 1.0 + Math.random() * 0.8;
+        const bGeom = new THREE.CylinderGeometry(0.08, 0.14, bLen, 5);
+        bGeom.rotateZ(Math.PI / 3.4);
+        bGeom.translate(bLen * 0.4, 0, 0);
+        const branchMesh = new THREE.Mesh(bGeom, trunkMat);
+        branchMesh.position.y = height * 0.65 + b * 0.4;
+        branchMesh.rotation.y = bAngle;
+        branchMesh.castShadow = true;
+        treeGroup.add(branchMesh);
       }
 
+      // Foliage
+      const leafMat = isBirch ? birchLeafMat : (isPine ? pineLeafMat : oakLeafMat);
+      if (isPine) {
+        // Tiered coniferous pagoda pine layers
+        for (let tier = 0; tier < 4; tier++) {
+          const tierY = height * 0.45 + tier * (height * 0.16);
+          const tierRadius = 2.4 - tier * 0.45;
+          const coneGeom = new THREE.ConeGeometry(tierRadius, 2.2, 7);
+          const cone = new THREE.Mesh(coneGeom, leafMat);
+          cone.position.y = tierY;
+          cone.castShadow = true;
+          treeGroup.add(cone);
+        }
+      } else {
+        // Multi-cluster deciduous organic canopy
+        const leafCount = 5 + Math.floor(Math.random() * 4);
+        for (let l = 0; l < leafCount; l++) {
+          const leafGeom = new THREE.DodecahedronGeometry(1.3 + Math.random() * 0.65, 1);
+          const foliage = new THREE.Mesh(leafGeom, leafMat);
+          foliage.position.set(
+            (Math.random() - 0.5) * 2.2,
+            height + (Math.random() - 0.2) * 1.8,
+            (Math.random() - 0.5) * 2.2
+          );
+          foliage.castShadow = true;
+          treeGroup.add(foliage);
+        }
+      }
+
+      const treeId = 'Tree_' + i;
       treeGroup.userData = {
         isBreakableTree: true,
         hp: 40,
         woodYield: 15,
+        treeId,
         position: new THREE.Vector3(x, y, z)
       };
 
       this.scene.add(treeGroup);
       this.trees.push(treeGroup);
       this.breakables.push(treeGroup);
+
+      // Register solid trunk collision (cannot walk through tree trunks!)
+      collision.addCylinder(x, z, trunkRadius + 0.12, y - 0.5, y + height + 1.0, treeId);
     }
   }
 
-  // Woodcutter Goblin Encampment
-  buildGoblinCamp() {
+  // Build All 5 Unique Battling Camps Across the Expanded Map
+  buildAllCamps() {
+    this.buildWoodcutterCamp();
+    this.buildMountainSkullFortress();
+    this.buildRiverMarauderCamp();
+    this.buildRuinedCastleCamp();
+    this.buildDepthsExcavationCamp();
+  }
+
+  // 1. Woodcutter Goblin Encampment (Eastern Forest clearing)
+  buildWoodcutterCamp() {
     const cx = this.goblinCampCenter.x;
     const cz = this.goblinCampCenter.z;
     const cy = this.terrain.getHeight(cx, cz);
@@ -168,53 +243,284 @@ export class Environment {
     const campGroup = new THREE.Group();
     campGroup.position.set(cx, cy, cz);
 
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
-    const palisadeMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.95 });
+    const woodTex = TextureGenerator.createBarkTexture(0x452b1a);
+    const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.9 });
+    const palisadeMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.95 });
 
-    // 1. Central Bonfire
-    const fireBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 0.4, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    // Central Bonfire
+    const fireBase = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.0, 0.45, 8), new THREE.MeshStandardMaterial({ color: 0x1f2937 }));
     campGroup.add(fireBase);
-
-    // Glowing fire pit light
-    const campLight = new THREE.PointLight(0xff6600, 2.0, 18);
-    campLight.position.set(0, 1.0, 0);
+    const campLight = new THREE.PointLight(0xff6600, 2.4, 22);
+    campLight.position.set(0, 1.2, 0);
     campGroup.add(campLight);
 
-    // 2. Palisades / Spiked Wall Stakes
-    const fenceRadius = 16;
-    for (let a = 0; a < Math.PI * 2; a += 0.45) {
-      if (a > 0.8 && a < 1.4) continue; // Gap for gate
+    // Palisades / Spiked Wall Stakes with collision
+    const fenceRadius = 18;
+    for (let a = 0; a < Math.PI * 2; a += 0.38) {
+      if (a > 0.8 && a < 1.5) continue; // Gate gap
       const fx = Math.cos(a) * fenceRadius;
       const fz = Math.sin(a) * fenceRadius;
       const fy = this.terrain.getHeight(cx + fx, cz + fz) - cy;
 
-      const stakeGeom = new THREE.ConeGeometry(0.18, 2.6, 5);
-      const stake = new THREE.Mesh(stakeGeom, palisadeMat);
-      stake.position.set(fx, fy + 1.2, fz);
+      const stake = new THREE.Mesh(new THREE.ConeGeometry(0.24, 2.8, 6), palisadeMat);
+      stake.position.set(fx, fy + 1.4, fz);
       stake.castShadow = true;
       campGroup.add(stake);
+
+      collision.addCylinder(cx + fx, cz + fz, 0.3, cy + fy - 0.5, cy + fy + 3.0, 'Palisade_1');
     }
 
-    // 3. Goblin Watchtower
+    // Goblin Watchtower
     const tower = new THREE.Group();
-    tower.position.set(10, 0, 10);
-    [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]].forEach(([px, pz]) => {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 6, 6), woodMat);
-      leg.position.set(px, 3, pz);
+    tower.position.set(12, 0, 12);
+    [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]].forEach(([px, pz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 6.5, 6), woodMat);
+      leg.position.set(px, 3.2, pz);
       tower.add(leg);
+      collision.addCylinder(cx + 12 + px, cz + 12 + pz, 0.25, cy - 0.5, cy + 6.5, 'TowerPost_1');
     });
-    const platform = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 3.2), woodMat);
-    platform.position.set(0, 6, 0);
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.35, 3.6), woodMat);
+    platform.position.set(0, 6.5, 0);
     tower.add(platform);
     campGroup.add(tower);
 
-    // 4. Chopped tree logs & weapon rack (sign of woodcutter aggression!)
+    // Chopped wood piles
     for (let l = 0; l < 4; l++) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2.5, 6), woodMat);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 2.8, 8, 1, false), woodMat);
       log.rotateZ(Math.PI / 2);
-      log.position.set(-5 + l * 0.7, 0.3, -4);
+      log.position.set(-6 + l * 0.8, 0.35, -5);
       campGroup.add(log);
     }
+
+    this.scene.add(campGroup);
+  }
+
+  // 2. Mountain Skull Fortress (Northwestern crags: fortified rocky stronghold)
+  buildMountainSkullFortress() {
+    const cx = this.mountainFortressCenter.x;
+    const cz = this.mountainFortressCenter.z;
+    const cy = this.terrain.getHeight(cx, cz);
+    this.mountainFortressCenter.y = cy;
+
+    const fortGroup = new THREE.Group();
+    fortGroup.position.set(cx, cy, cz);
+
+    const rockTex = TextureGenerator.createRockTexture(0x3f3f46, true);
+    const fortStoneMat = new THREE.MeshStandardMaterial({ map: rockTex, roughness: 0.9 });
+    const woodTex = TextureGenerator.createBarkTexture(0x3e2723);
+    const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.9 });
+
+    // Massive Stone Skull Cave Gateway
+    const skullRock = new THREE.Mesh(new THREE.DodecahedronGeometry(6.5, 1), fortStoneMat);
+    skullRock.position.set(0, 4.5, -8);
+    skullRock.scale.set(1.2, 1.0, 0.9);
+    fortGroup.add(skullRock);
+    collision.addSphere(cx, cy + 4.5, cz - 8, 6.2, 'SkullRockFort');
+
+    // Dual High Sniper Watchtowers
+    [-14, 14].forEach(tx => {
+      const tower = new THREE.Group();
+      tower.position.set(tx, 0, 10);
+      [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]].forEach(([px, pz]) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 7.5, 6), woodMat);
+        post.position.set(px, 3.75, pz);
+        tower.add(post);
+        collision.addCylinder(cx + tx + px, cz + 10 + pz, 0.3, cy - 0.5, cy + 7.5, 'FortTowerPost');
+      });
+      const topDeck = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.4, 3.8), woodMat);
+      topDeck.position.set(0, 7.5, 0);
+      tower.add(topDeck);
+      fortGroup.add(tower);
+    });
+
+    // Spiked Wall Perimeter
+    const wallRadius = 24;
+    for (let a = 0; a < Math.PI * 2; a += 0.32) {
+      if (a > 1.2 && a < 1.9) continue; // Gate opening
+      const wx = Math.cos(a) * wallRadius;
+      const wz = Math.sin(a) * wallRadius;
+      const stake = new THREE.Mesh(new THREE.ConeGeometry(0.3, 3.8, 6), woodMat);
+      stake.position.set(wx, 1.9, wz);
+      stake.castShadow = true;
+      fortGroup.add(stake);
+      collision.addCylinder(cx + wx, cz + wz, 0.35, cy - 0.5, cy + 4.0, 'FortPalisade');
+    }
+
+    // Central War Bonfire
+    const firePit = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x18181b }));
+    firePit.position.set(0, 0.25, 0);
+    fortGroup.add(firePit);
+    const fireLight = new THREE.PointLight(0xef4444, 3.0, 28);
+    fireLight.position.set(0, 2.0, 0);
+    fortGroup.add(fireLight);
+
+    // Explosive Powder Barrels (Red Zonai Bomb Barrels)
+    for (let b = 0; b < 3; b++) {
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.45, 1.1, 8),
+        new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.6 })
+      );
+      barrel.position.set(-5 + b * 1.2, 0.55, 4);
+      barrel.userData = { isExplosiveBarrel: true, name: 'Explosive Bomb Barrel' };
+      fortGroup.add(barrel);
+      collision.addCylinder(cx - 5 + b * 1.2, cz + 4, 0.48, cy, cy + 1.2, 'BombBarrel');
+    }
+
+    // Heavy Tribal Loot Chest
+    const chest = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 1.1, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0x854d0e, metalness: 0.7, roughness: 0.3 })
+    );
+    chest.position.set(0, 0.55, -4);
+    chest.userData = { isLootChest: true, loot: 'Fortress Treasure (30 Wood, 100 Biomass, 2 Rubies)' };
+    fortGroup.add(chest);
+
+    this.scene.add(fortGroup);
+  }
+
+  // 3. River Marauder Encampment (Southern riverbanks & stilt docks)
+  buildRiverMarauderCamp() {
+    const cx = this.riverMarauderCenter.x;
+    const cz = this.riverMarauderCenter.z;
+    const cy = this.terrain.getHeight(cx, cz);
+    this.riverMarauderCenter.y = cy;
+
+    const campGroup = new THREE.Group();
+    campGroup.position.set(cx, cy, cz);
+
+    const plankTex = TextureGenerator.createBarkTexture(0x5c4033);
+    const plankMat = new THREE.MeshStandardMaterial({ map: plankTex, roughness: 0.85 });
+
+    // Riverside Raft Docks
+    const dock = new THREE.Mesh(new THREE.BoxGeometry(14, 0.5, 10), plankMat);
+    dock.position.set(0, 0.25, 0);
+    dock.receiveShadow = true;
+    campGroup.add(dock);
+
+    // Dock Stilts
+    [[-6, -4], [6, -4], [-6, 4], [6, 4]].forEach(([sx, sz]) => {
+      const stilt = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 4.0, 6), plankMat);
+      stilt.position.set(sx, -1.8, sz);
+      campGroup.add(stilt);
+      collision.addCylinder(cx + sx, cz + sz, 0.3, cy - 3.5, cy + 1.0, 'RiverStilt');
+    });
+
+    // Lookout Raft Tower
+    const tower = new THREE.Group();
+    tower.position.set(5, 0.5, -3);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([px, pz]) => {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 5.0, 5), plankMat);
+      p.position.set(px, 2.5, pz);
+      tower.add(p);
+      collision.addCylinder(cx + 5 + px, cz - 3 + pz, 0.2, cy, cy + 5.5, 'RaftTowerPost');
+    });
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.3, 2.8), plankMat);
+    platform.position.set(0, 5.0, 0);
+    tower.add(platform);
+    campGroup.add(tower);
+
+    // River Loot Cage
+    const cage = new THREE.Mesh(
+      new THREE.BoxGeometry(2.0, 2.0, 2.0),
+      new THREE.MeshStandardMaterial({ color: 0x475569, wireframe: true })
+    );
+    cage.position.set(-4, 1.2, 2);
+    campGroup.add(cage);
+    collision.addBox(cx - 5.0, cx - 3.0, cz + 1.0, cz + 3.0, cy, cy + 2.5, 'RiverCage');
+
+    this.scene.add(campGroup);
+  }
+
+  // 4. Ruined Castle Stronghold (Northeastern Ancient Fortress)
+  buildRuinedCastleCamp() {
+    const cx = this.ruinedCastleCenter.x;
+    const cz = this.ruinedCastleCenter.z;
+    const cy = this.terrain.getHeight(cx, cz);
+    this.ruinedCastleCenter.y = cy;
+
+    const fortGroup = new THREE.Group();
+    fortGroup.position.set(cx, cy, cz);
+
+    const stoneTex = TextureGenerator.createZonaiStoneTexture();
+    const rockTex = TextureGenerator.createRockTexture(0x475569, true);
+    const castleMat = new THREE.MeshStandardMaterial({ map: rockTex, roughness: 0.9 });
+    const runeMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.7 });
+
+    // Ruined Rampart Walls
+    [
+      { x: 0, z: -14, w: 22, h: 4.5, d: 2.2 },
+      { x: -11, z: 0, w: 2.2, h: 4.0, d: 24 },
+      { x: 11, z: 0, w: 2.2, h: 4.0, d: 24 }
+    ].forEach((wall, idx) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(wall.w, wall.h, wall.d), castleMat);
+      mesh.position.set(wall.x, wall.h * 0.5, wall.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      fortGroup.add(mesh);
+      collision.addBox(
+        cx + wall.x - wall.w * 0.5, cx + wall.x + wall.w * 0.5,
+        cz + wall.z - wall.d * 0.5, cz + wall.z + wall.d * 0.5,
+        cy - 0.5, cy + wall.h + 0.5,
+        'CastleWall_' + idx
+      );
+    });
+
+    // Castle Stone Columns
+    [[-8, -8], [8, -8], [-8, 6], [8, 6]].forEach(([px, pz], idx) => {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 5.5, 8), runeMat);
+      col.position.set(px, 2.75, pz);
+      col.castShadow = true;
+      fortGroup.add(col);
+      collision.addCylinder(cx + px, cz + pz, 0.85, cy - 0.5, cy + 5.5, 'CastleColumn_' + idx);
+    });
+
+    // Chieftain Stone Dais Throne
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.5, 0.8, 8), castleMat);
+    dais.position.set(0, 0.4, -6);
+    fortGroup.add(dais);
+
+    // Ancient Royal Chest
+    const royalChest = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 1.2, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.85, roughness: 0.25 })
+    );
+    royalChest.position.set(0, 1.2, -6);
+    royalChest.userData = { isRoyalChest: true, name: 'Ancient Royal Chest' };
+    fortGroup.add(royalChest);
+
+    this.scene.add(fortGroup);
+  }
+
+  // 5. Depths Gloom Excavation Camp (Located in subterranean depths at y = -90)
+  buildDepthsExcavationCamp() {
+    const cx = this.depthsCampCenter.x;
+    const cy = this.depthsCampCenter.y;
+    const cz = this.depthsCampCenter.z;
+
+    const campGroup = new THREE.Group();
+    campGroup.position.set(cx, cy, cz);
+
+    const maliceTex = TextureGenerator.createGloomMaliceTexture();
+    const gloomMat = new THREE.MeshStandardMaterial({ map: maliceTex, roughness: 0.8 });
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.3 });
+
+    // Gloom Mining Carts
+    for (let c = 0; c < 2; c++) {
+      const cart = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 1.6), ironMat);
+      cart.position.set(-4 + c * 8, 0.6, -3);
+      campGroup.add(cart);
+      collision.addBox(cx - 5.5 + c * 8, cx - 2.5 + c * 8, cz - 4, cz - 2, cy - 0.5, cy + 2.0, 'MineCart_' + c);
+    }
+
+    // Glowing Purple Gloom Braziers
+    [-6, 6].forEach(bx => {
+      const brazier = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 1.4, 6), ironMat);
+      brazier.position.set(bx, 0.7, 4);
+      campGroup.add(brazier);
+      const bLight = new THREE.PointLight(0xa855f7, 2.5, 18);
+      bLight.position.set(bx, 1.6, 4);
+      campGroup.add(bLight);
+    });
 
     this.scene.add(campGroup);
   }
@@ -537,24 +843,27 @@ export class Environment {
     }
   }
 
-  // Ancient Stone Ruins & Monoliths (Zelda-style weathered stonework)
+  // Ancient Stone Ruins & Monoliths (Zelda-style weathered stonework with collision)
   spawnAncientRuins() {
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.95 });
-    const mossStoneMat = new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.9 });
-    const runeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.6 });
+    const stoneTex = TextureGenerator.createRockTexture(0x57534e, true);
+    const mossTex = TextureGenerator.createRockTexture(0x44403c, true);
+    const stoneMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.92 });
+    const mossStoneMat = new THREE.MeshStandardMaterial({ map: mossTex, roughness: 0.88 });
+    const runeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.75 });
 
     // 1. Ancient Stone Archway at x: 20, z: -15
     const archGroup = new THREE.Group();
     const archY = this.terrain.getHeight(20, -15);
     archGroup.position.set(20, archY, -15);
 
-    // Left & Right Pillars
-    [-2.2, 2.2].forEach(px => {
+    // Left & Right Pillars with collision
+    [-2.2, 2.2].forEach((px, idx) => {
       const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 4.8, 8), stoneMat);
       pillar.position.set(px, 2.4, 0);
       pillar.castShadow = true;
       pillar.receiveShadow = true;
       archGroup.add(pillar);
+      collision.addCylinder(20 + px, -15, 0.7, archY, archY + 5.0, 'ArchPillar_' + idx);
     });
 
     // Lintel Top Arch Stone
@@ -570,19 +879,22 @@ export class Environment {
     this.scene.add(archGroup);
 
     // 2. Ruined Broken Monoliths in the Northern Meadow (x: -40, z: -70)
-    for (let m = 0; m < 5; m++) {
-      const mx = -40 + (Math.random() - 0.5) * 25;
-      const mz = -70 + (Math.random() - 0.5) * 25;
+    for (let m = 0; m < 6; m++) {
+      const mx = -40 + (Math.random() - 0.5) * 35;
+      const mz = -70 + (Math.random() - 0.5) * 35;
       const my = this.terrain.getHeight(mx, mz);
+      const monoH = 2.4 + Math.random() * 2.8;
       const mono = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.4, 0.55, 2.2 + Math.random() * 2.5, 6),
+        new THREE.CylinderGeometry(0.42, 0.58, monoH, 7),
         stoneMat
       );
-      mono.position.set(mx, my + 1.1, mz);
-      mono.rotation.z = (Math.random() - 0.5) * 0.35; // Tilting ruined column
+      mono.position.set(mx, my + monoH * 0.5, mz);
+      mono.rotation.z = (Math.random() - 0.5) * 0.35;
       mono.rotation.y = Math.random() * Math.PI;
       mono.castShadow = true;
       this.scene.add(mono);
+
+      collision.addCylinder(mx, mz, 0.6, my, my + monoH, 'Monolith_' + m);
     }
   }
 
@@ -596,8 +908,8 @@ export class Environment {
     ];
 
     for (let i = 0; i < count; i++) {
-      const x = (Math.random() - 0.5) * (this.terrain.size - 40);
-      const z = (Math.random() - 0.5) * (this.terrain.size - 40);
+      const x = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 60);
       if (this.terrain.isWater(x, z)) continue;
 
       const y = this.terrain.getHeight(x, z);
@@ -626,22 +938,24 @@ export class Environment {
     }
   }
 
-  // Mossy Granite Boulders & River Stepping Stones
-  spawnRockFormations(count = 50) {
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.95 });
-    const mossMat = new THREE.MeshStandardMaterial({ color: 0x3f6212, roughness: 0.9 });
+  // Mossy Granite Boulders & Stepping Stones with authentic rock texture and solid collision
+  spawnRockFormations(count = 80) {
+    const rockTex = TextureGenerator.createRockTexture(0x57606e, false);
+    const mossTex = TextureGenerator.createRockTexture(0x405338, true);
+    const rockMat = new THREE.MeshStandardMaterial({ map: rockTex, roughness: 0.92 });
+    const mossMat = new THREE.MeshStandardMaterial({ map: mossTex, roughness: 0.88 });
 
     for (let i = 0; i < count; i++) {
-      const x = (Math.random() - 0.5) * (this.terrain.size - 40);
-      const z = (Math.random() - 0.5) * (this.terrain.size - 40);
+      const x = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 60);
       const y = this.terrain.getHeight(x, z);
       const isSteppingStone = this.terrain.isWater(x, z);
 
-      const scale = isSteppingStone ? 0.8 + Math.random() * 0.5 : 1.2 + Math.random() * 1.6;
+      const scale = isSteppingStone ? 0.9 + Math.random() * 0.5 : 1.3 + Math.random() * 1.8;
       const mat = Math.random() < 0.45 ? mossMat : rockMat;
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(scale, 1), mat);
-      
-      rock.position.set(x, isSteppingStone ? -0.1 : y + scale * 0.4, z);
+
+      rock.position.set(x, isSteppingStone ? -0.1 : y + scale * 0.35, z);
       rock.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
       rock.castShadow = true;
       rock.receiveShadow = true;
@@ -652,38 +966,79 @@ export class Environment {
         scale
       };
       this.scene.add(rock);
+
       if (!isSteppingStone) {
         this.fusableObjects.push(rock);
+        // Solid spherical obstacle collision
+        collision.addSphere(x, y + scale * 0.35, z, scale * 0.85, 'Rock_' + i);
       }
     }
   }
 
-  // Hollow Fallen Logs along meadows
-  spawnFallenLogs(count = 25) {
+  // Full Solid Cylindrical Fallen Hardwood Logs with growth rings and solid capsule collision
+  spawnFallenLogs(count = 40) {
     const barkTex = TextureGenerator.createBarkTexture(0x4a321d);
-    const logMat = new THREE.MeshStandardMaterial({ map: barkTex, roughness: 0.9 });
+    const barkNormal = TextureGenerator.createBarkNormalMap();
+    const ringTex = TextureGenerator.createWoodRingTexture();
+
+    const logMat = new THREE.MeshStandardMaterial({
+      map: barkTex,
+      normalMap: barkNormal,
+      normalScale: new THREE.Vector2(0.7, 0.7),
+      roughness: 0.88
+    });
+    const capMat = new THREE.MeshStandardMaterial({
+      map: ringTex,
+      roughness: 0.85
+    });
 
     for (let i = 0; i < count; i++) {
-      const x = (Math.random() - 0.5) * (this.terrain.size - 50);
-      const z = (Math.random() - 0.5) * (this.terrain.size - 50);
+      const x = (Math.random() - 0.5) * (this.terrain.size - 60);
+      const z = (Math.random() - 0.5) * (this.terrain.size - 60);
       if (this.terrain.isWater(x, z)) continue;
 
       const y = this.terrain.getHeight(x, z);
-      const len = 3.5 + Math.random() * 3.0;
-      const logGeom = new THREE.CylinderGeometry(0.38, 0.48, len, 8, 1, true); // Hollow tube
-      const log = new THREE.Mesh(logGeom, logMat);
+      const len = 3.8 + Math.random() * 3.2;
+      const rTop = 0.38 + Math.random() * 0.08;
+      const rBot = 0.46 + Math.random() * 0.08;
 
-      log.rotation.z = Math.PI / 2;
-      log.rotation.y = Math.random() * Math.PI;
-      log.position.set(x, y + 0.35, z);
-      log.castShadow = true;
-      log.userData = {
+      const logGroup = new THREE.Group();
+      logGroup.position.set(x, y + rBot * 0.85, z);
+      const rotY = Math.random() * Math.PI;
+      logGroup.rotation.y = rotY;
+
+      // FULL solid cylinder (openEnded: false - eliminates hollow tube look!)
+      const logGeom = new THREE.CylinderGeometry(rTop, rBot, len, 16, 1, false);
+      logGeom.rotateZ(Math.PI / 2);
+      const logMesh = new THREE.Mesh(logGeom, logMat);
+      logMesh.castShadow = true;
+      logMesh.receiveShadow = true;
+      logGroup.add(logMesh);
+
+      // Authentic concentric tree-ring end caps on both ends of the log
+      const capTop = new THREE.Mesh(new THREE.CircleGeometry(rTop, 16), capMat);
+      capTop.position.set(len * 0.5 + 0.005, 0, 0);
+      capTop.rotation.y = Math.PI / 2;
+      logGroup.add(capTop);
+
+      const capBot = new THREE.Mesh(new THREE.CircleGeometry(rBot, 16), capMat);
+      capBot.position.set(-len * 0.5 - 0.005, 0, 0);
+      capBot.rotation.y = -Math.PI / 2;
+      logGroup.add(capBot);
+
+      logGroup.userData = {
         isFusable: true,
         fuseType: 'log',
-        name: 'Hardwood Log'
+        name: 'Hardwood Solid Log'
       };
-      this.scene.add(log);
-      this.fusableObjects.push(log);
+      this.scene.add(logGroup);
+      this.fusableObjects.push(logGroup);
+
+      // Solid capsule collision (player cannot walk through fallen logs!)
+      const halfLen = len * 0.5;
+      const dx = Math.cos(rotY) * halfLen;
+      const dz = -Math.sin(rotY) * halfLen;
+      collision.addCapsule(x - dx, z - dz, x + dx, z + dz, Math.max(rTop, rBot), y - 0.5, y + 1.6, 'Log_' + i);
     }
   }
 
@@ -1258,48 +1613,209 @@ export class Environment {
     }
   }
 
-  // 15. Subterranean Root Chasm Cavern with Bioluminescent Crystals & Bubbulfrog Perch
-  spawnChasmCavern() {
-    const cx = 75;
-    const cz = 70;
-    const cy = -12; // deep subterranean crater
-    const cavernGroup = new THREE.Group();
-    cavernGroup.position.set(cx, cy, cz);
+  // 15. Proper Gloom Chasm Abyss & The Depths Underworld Realm (y = -90)
+  spawnProperChasmAndDepths() {
+    const cx = this.terrain.chasmCenter.x;
+    const cz = this.terrain.chasmCenter.y;
+    const surfaceY = 4.0;
+    const depthsY = this.terrain.depthsFloorY; // -90.0
 
-    const crystalMatCyan = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      emissive: 0x0284c7,
-      emissiveIntensity: 0.85,
-      roughness: 0.2
-    });
-    const crystalMatPurple = new THREE.MeshStandardMaterial({
-      color: 0xc084fc,
-      emissive: 0x7e22ce,
-      emissiveIntensity: 0.85,
-      roughness: 0.2
-    });
+    const chasmGroup = new THREE.Group();
+    const rockTex = TextureGenerator.createRockTexture(0x18181b, false);
+    const maliceTex = TextureGenerator.createGloomMaliceTexture();
+    const obsidianMat = new THREE.MeshStandardMaterial({ map: rockTex, roughness: 0.95 });
+    const gloomMaliceMat = new THREE.MeshStandardMaterial({ map: maliceTex, roughness: 0.8 });
 
-    // Subterranean glowing crystal formations
-    for (let c = 0; c < 12; c++) {
-      const angle = (c / 12) * Math.PI * 2;
-      const dist = 5.0 + Math.random() * 8.0;
-      const stalag = new THREE.Mesh(
-        new THREE.ConeGeometry(0.4 + Math.random() * 0.4, 2.5 + Math.random() * 3.0, 6),
-        c % 2 === 0 ? crystalMatCyan : crystalMatPurple
-      );
-      stalag.position.set(Math.cos(angle) * dist, 1.2, Math.sin(angle) * dist);
-      stalag.rotation.z = (Math.random() - 0.5) * 0.3;
-      cavernGroup.add(stalag);
+    // 1. Surface Chasm Jagged Obsidian Teeth Spires circling the abyss mouth
+    for (let s = 0; s < 18; s++) {
+      const angle = (s / 18) * Math.PI * 2;
+      const r = 24.0 + (Math.random() - 0.5) * 3.0;
+      const sx = cx + Math.cos(angle) * r;
+      const sz = cz + Math.sin(angle) * r;
+      const sy = this.terrain.getHeight(sx, sz, surfaceY);
+
+      const h = 5.0 + Math.random() * 5.0;
+      const spire = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 6), obsidianMat);
+      spire.position.set(sx, sy + h * 0.45, sz);
+      spire.rotation.z = (Math.random() - 0.5) * 0.35;
+      spire.rotation.x = (Math.random() - 0.5) * 0.35;
+      spire.castShadow = true;
+      chasmGroup.add(spire);
+
+      collision.addCylinder(sx, sz, 1.4, sy - 1, sy + h, 'ChasmSpire_' + s);
     }
 
-    // Ancient Ruined Underground Golden Urn / Chest
-    const urnMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, metalness: 0.8, roughness: 0.2 });
-    const urn = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 1), urnMat);
-    urn.position.set(0, 0.8, 0);
-    cavernGroup.add(urn);
+    // Ominous Crimson Gloom Abyss Core Light at the mouth of the pit
+    const chasmLight = new THREE.PointLight(0xe11d48, 3.5, 45);
+    chasmLight.position.set(cx, surfaceY - 8.0, cz);
+    chasmGroup.add(chasmLight);
 
-    this.scene.add(cavernGroup);
-    this.chasmCavern = cavernGroup;
+    // 2. The Depths Subterranean Realm (Floor at y = -90)
+    const depthsFloorGeom = new THREE.PlaneGeometry(380, 380, 48, 48);
+    depthsFloorGeom.rotateX(-Math.PI / 2);
+    const depthsFloor = new THREE.Mesh(depthsFloorGeom, gloomMaliceMat);
+    depthsFloor.position.set(cx, depthsY, cz);
+    depthsFloor.receiveShadow = true;
+    chasmGroup.add(depthsFloor);
+
+    // Towering Ancient Zonai Lightroot at (cx - 25, depthsY, cz - 25)
+    const rootGroup = new THREE.Group();
+    rootGroup.position.set(cx - 25, depthsY, cz - 25);
+
+    const rootBarkTex = TextureGenerator.createBarkTexture(0x2d241c);
+    const rootTrunkMat = new THREE.MeshStandardMaterial({ map: rootBarkTex, roughness: 0.9 });
+    const lightrootGoldMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      emissive: 0xeab308,
+      emissiveIntensity: 0.9,
+      roughness: 0.2
+    });
+
+    // Gigantic world-root trunk reaching 42m into the darkness
+    const rootTrunk = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 4.8, 42, 8), rootTrunkMat);
+    rootTrunk.position.y = 21;
+    rootGroup.add(rootTrunk);
+    collision.addCylinder(cx - 25, cz - 25, 4.6, depthsY, depthsY + 42, 'LightrootTrunk');
+
+    // Glowing Golden Lightroot Bulb Canopy
+    const rootBulb = new THREE.Mesh(new THREE.DodecahedronGeometry(5.5, 2), lightrootGoldMat);
+    rootBulb.position.y = 42;
+    rootGroup.add(rootBulb);
+
+    const rootLight = new THREE.PointLight(0xfef08a, 4.5, 80);
+    rootLight.position.set(0, 36, 0);
+    rootGroup.add(rootLight);
+
+    // Sacred Activation Core at foot level
+    const coreMesh = new THREE.Mesh(new THREE.OctahedronGeometry(1.2), lightrootGoldMat);
+    coreMesh.position.set(0, 1.8, 4.8);
+    rootGroup.add(coreMesh);
+
+    rootGroup.userData = {
+      isLightroot: true,
+      activated: false,
+      name: 'Great Underground Lightroot',
+      position: new THREE.Vector3(cx - 25, depthsY, cz - 25)
+    };
+    chasmGroup.add(rootGroup);
+    this.lightroot = rootGroup;
+
+    // 3. Zonai Ascend Geyser / Updraft Launch Pad (Directly beneath the chasm hole to launch back up!)
+    const geyserGroup = new THREE.Group();
+    geyserGroup.position.set(cx, depthsY + 0.1, cz);
+
+    const padMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.8, roughness: 0.3 });
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 0.95 });
+
+    const geyserBase = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.6, 0.4, 16), padMat);
+    geyserGroup.add(geyserBase);
+
+    const geyserRing = new THREE.Mesh(new THREE.RingGeometry(1.2, 3.0, 16), ringMat);
+    geyserRing.rotation.x = -Math.PI / 2;
+    geyserRing.position.y = 0.22;
+    geyserGroup.add(geyserRing);
+
+    // Vertical updraft beam reaching from -90 up to surface
+    const beamGeom = new THREE.CylinderGeometry(2.4, 2.4, 95, 12, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0x34d399,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide
+    });
+    const beam = new THREE.Mesh(beamGeom, beamMat);
+    beam.position.y = 47.5;
+    geyserGroup.add(beam);
+
+    geyserGroup.userData = {
+      isZonaiPad: true,
+      isDepthsAscend: true,
+      radius: 3.5,
+      position: new THREE.Vector3(cx, depthsY, cz),
+      launchVelocity: 85.0
+    };
+    chasmGroup.add(geyserGroup);
+    this.zonaiPads.push(geyserGroup);
+    this.depthsLaunchPad = geyserGroup;
+
+    // Subterranean glowing crystals scattered across the Depths
+    for (let c = 0; c < 24; c++) {
+      const dist = 18.0 + Math.random() * 85.0;
+      const angle = Math.random() * Math.PI * 2;
+      const crx = cx + Math.cos(angle) * dist;
+      const crz = cz + Math.sin(angle) * dist;
+
+      const crystal = new THREE.Mesh(
+        new THREE.ConeGeometry(0.6 + Math.random() * 0.5, 3.0 + Math.random() * 4.0, 6),
+        c % 2 === 0 ? new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.8 })
+                    : new THREE.MeshStandardMaterial({ color: 0xc084fc, emissive: 0x7e22ce, emissiveIntensity: 0.8 })
+      );
+      crystal.position.set(crx, depthsY + 1.5, crz);
+      crystal.rotation.z = (Math.random() - 0.5) * 0.4;
+      chasmGroup.add(crystal);
+    }
+
+    this.scene.add(chasmGroup);
+    this.chasmCavern = chasmGroup;
+  }
+
+  // 16. Deep Underwater Features in Central Sylvan Lake & Sunken Treasures
+  spawnUnderwaterFeatures() {
+    const lx = 0;
+    const lz = 75;
+    const lakeBedY = -8.5;
+
+    const waterGroup = new THREE.Group();
+    waterGroup.position.set(lx, 0, lz);
+
+    const stoneTex = TextureGenerator.createRockTexture(0x475569, true);
+    const stoneMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.95 });
+
+    // 1. Sunken Ancient Temple Pillars on the lake floor
+    [[-12, -8], [12, -8], [-12, 10], [12, 10]].forEach(([px, pz], idx) => {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 6.5, 8), stoneMat);
+      pillar.position.set(px, lakeBedY + 3.25, pz);
+      pillar.rotation.z = (Math.random() - 0.5) * 0.2;
+      waterGroup.add(pillar);
+      collision.addCylinder(lx + px, lz + pz, 0.85, lakeBedY, lakeBedY + 6.5, 'SunkenPillar_' + idx);
+    });
+
+    // 2. Sunken Ancient Zora Treasure Chest resting on the deep lake bed
+    const chestMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.8, roughness: 0.25 });
+    const sunkenChest = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 1.0), chestMat);
+    sunkenChest.position.set(4, lakeBedY + 0.55, 6);
+    sunkenChest.userData = {
+      isUnderwaterChest: true,
+      name: 'Sunken Zora Relic Chest',
+      opened: false,
+      position: new THREE.Vector3(lx + 4, lakeBedY + 0.55, lz + 6)
+    };
+    waterGroup.add(sunkenChest);
+    this.underwaterChests.push(sunkenChest);
+
+    // Glowing underwater beacon light
+    const pearlLight = new THREE.PointLight(0x38bdf8, 2.0, 16);
+    pearlLight.position.set(4, lakeBedY + 1.2, 6);
+    waterGroup.add(pearlLight);
+
+    // 3. Tall Bioluminescent River Kelp fronds
+    const kelpMat = new THREE.MeshStandardMaterial({
+      color: 0x059669,
+      emissive: 0x10b981,
+      emissiveIntensity: 0.4,
+      roughness: 0.5,
+      side: THREE.DoubleSide
+    });
+    for (let k = 0; k < 18; k++) {
+      const kx = (Math.random() - 0.5) * 45;
+      const kz = (Math.random() - 0.5) * 45;
+      const kelp = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 5.5 + Math.random() * 2.5), kelpMat);
+      kelp.position.set(kx, lakeBedY + 3.0, kz);
+      kelp.rotation.y = Math.random() * Math.PI;
+      waterGroup.add(kelp);
+    }
+
+    this.scene.add(waterGroup);
   }
 }
 

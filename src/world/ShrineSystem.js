@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { audio } from '../core/AudioManager.js';
+import { TextureGenerator } from '../core/TextureGenerator.js';
+import { collision } from '../core/Collision.js';
 
 export class ShrineSystem {
   constructor(scene, engine, terrain) {
@@ -25,8 +27,8 @@ export class ShrineSystem {
         id: 'roots_shrine',
         name: 'Shrine of the Living Roots',
         subtitle: 'Trial of Vitality & Growth',
-        x: 42,
-        z: -38,
+        x: 45,
+        z: -45,
         description: 'Descend into the ancient subterranean root sanctum. Solve the Zonai sphere pedestal puzzle to reach the Sage Altar.',
         dungeonId: 'roots_dungeon',
         completed: false,
@@ -36,9 +38,9 @@ export class ShrineSystem {
         id: 'magnetic_shrine',
         name: 'Shrine of Magnetic Flow',
         subtitle: 'Trial of Ultrahand Resonance',
-        x: -48,
-        z: 32,
-        description: 'Enter the magnetic abyss chamber. Use Ultrahand to bridge the gap with heavy metallic slabs.',
+        x: -65,
+        z: 45,
+        description: 'Enter the magnetic abyss chamber. Use Ultrahand to bridge the gap with heavy metallic slabs and depress the pressure switch.',
         dungeonId: 'magnetic_dungeon',
         completed: false,
         activated: false
@@ -47,14 +49,51 @@ export class ShrineSystem {
         id: 'temporal_shrine',
         name: 'Shrine of Temporal Reversal',
         subtitle: 'Trial of Time-Reversal Recall',
-        x: 15,
-        z: 75,
+        x: 35,
+        z: 110,
         description: 'Venture into the chamber of chronomancy. Use Recall on descending boulders and ride them backward up the ramp to the altar.',
         dungeonId: 'temporal_dungeon',
         completed: false,
         activated: false
+      },
+      {
+        id: 'submerged_shrine',
+        name: 'Shrine of Submerged Currents',
+        subtitle: 'Trial of the Sunken Deep',
+        x: -15,
+        z: 75,
+        description: 'Descend into the flooded aquatic grotto. Dive underwater to reach and trigger the submerged ancient crystal switch.',
+        dungeonId: 'submerged_dungeon',
+        completed: false,
+        activated: false
+      },
+      {
+        id: 'flame_shrine',
+        name: 'Shrine of Malice & Flame',
+        subtitle: 'Trial of Sacred Pyromancy',
+        x: 180,
+        z: -120,
+        description: 'Enter the ruined sanctum. Ignite both ancient braziers using flame attacks or fused explosive bomb flowers to unlock the inner vault.',
+        dungeonId: 'flame_dungeon',
+        completed: false,
+        activated: false
       }
     ];
+
+    const stoneTex = TextureGenerator.createZonaiStoneTexture();
+    const rockTex = TextureGenerator.createRockTexture(0x334155, true);
+
+    const stoneMat = new THREE.MeshStandardMaterial({
+      map: rockTex,
+      roughness: 0.88,
+      metalness: 0.15
+    });
+    const archMat = new THREE.MeshStandardMaterial({
+      map: stoneTex,
+      roughness: 0.72,
+      emissive: 0x064e3b,
+      emissiveIntensity: 0.25
+    });
 
     shrineDefs.forEach(def => {
       const y = this.terrain ? this.terrain.getHeight(def.x, def.z) : 0;
@@ -63,25 +102,16 @@ export class ShrineSystem {
 
       // 1. Base Stone Foundation (Zonai stepped pyramid / platform)
       const baseGeom = new THREE.CylinderGeometry(4.5, 5.8, 1.4, 8);
-      const stoneMat = new THREE.MeshStandardMaterial({
-        color: 0x334155,
-        roughness: 0.85,
-        metalness: 0.15
-      });
       const baseMesh = new THREE.Mesh(baseGeom, stoneMat);
       baseMesh.position.y = 0.7;
       baseMesh.castShadow = true;
       baseMesh.receiveShadow = true;
       group.add(baseMesh);
 
-      // 2. Zonai Shrine Shell Pillars / Arch
-      const archMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
-        roughness: 0.7,
-        emissive: 0x064e3b,
-        emissiveIntensity: 0.2
-      });
+      // Solid collision for shrine foundation
+      collision.addCylinder(def.x, def.z, 4.6, y - 0.5, y + 1.8, 'ShrineBase_' + def.id);
 
+      // 2. Zonai Shrine Shell Pillars / Arch
       const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 4.8, 1.0), archMat);
       leftPillar.position.set(-2.2, 3.0, 0);
       group.add(leftPillar);
@@ -133,7 +163,7 @@ export class ShrineSystem {
       group.add(spiralGroup);
 
       // 5. Point light for atmospheric radiance
-      const light = new THREE.PointLight(0x10b981, 2.0, 20);
+      const light = new THREE.PointLight(0x10b981, 2.4, 24);
       light.position.set(0, 4.5, 0);
       group.add(light);
 
@@ -214,7 +244,8 @@ export class ShrineSystem {
         name: 'Sanctum of the Living Roots',
         origin: new THREE.Vector3(150, -45, -150),
         size: { x: 26, y: 14, z: 46 },
-        puzzleType: 'sphere_socket'
+        puzzleType: 'sphere_socket',
+        reward: { light: 1, biomass: 100, wood: 40, item: 'Ancient Amber' }
       },
       {
         id: 'magnetic_dungeon',
@@ -222,7 +253,8 @@ export class ShrineSystem {
         name: 'Sanctum of Magnetic Flow',
         origin: new THREE.Vector3(-150, -45, -150),
         size: { x: 26, y: 14, z: 52 },
-        puzzleType: 'magnetic_bridge'
+        puzzleType: 'magnetic_bridge',
+        reward: { light: 1, biomass: 120, stardust: 1, item: 'Zonai Energy Cell' }
       },
       {
         id: 'temporal_dungeon',
@@ -230,7 +262,26 @@ export class ShrineSystem {
         name: 'Sanctum of Temporal Reversal',
         origin: new THREE.Vector3(0, -45, -260),
         size: { x: 26, y: 16, z: 54 },
-        puzzleType: 'recall_ramp'
+        puzzleType: 'recall_ramp',
+        reward: { light: 1, biomass: 150, stardust: 2, item: 'Ancient Chrono Blade' }
+      },
+      {
+        id: 'submerged_dungeon',
+        shrineId: 'submerged_shrine',
+        name: 'Sanctum of Submerged Currents',
+        origin: new THREE.Vector3(-220, -45, 0),
+        size: { x: 28, y: 16, z: 50 },
+        puzzleType: 'submerged_currents',
+        reward: { light: 1, biomass: 130, stardust: 1, item: 'Sacred Zora Pearl' }
+      },
+      {
+        id: 'flame_dungeon',
+        shrineId: 'flame_shrine',
+        name: 'Sanctum of Malice & Flame',
+        origin: new THREE.Vector3(220, -45, 0),
+        size: { x: 28, y: 16, z: 52 },
+        puzzleType: 'flame_braziers',
+        reward: { light: 1, biomass: 180, stardust: 2, item: 'Forest King Ruby' }
       }
     ];
 
@@ -244,15 +295,18 @@ export class ShrineSystem {
     const group = new THREE.Group();
     group.position.copy(cfg.origin);
 
+    const stoneTex = TextureGenerator.createZonaiStoneTexture();
+    const rockTex = TextureGenerator.createRockTexture(0x1e293b, true);
+
     const stoneMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.8,
+      map: rockTex,
+      roughness: 0.85,
       metalness: 0.2
     });
     const runeMat = new THREE.MeshStandardMaterial({
-      color: 0x064e3b,
+      map: stoneTex,
       emissive: 0x059669,
-      emissiveIntensity: 0.8,
+      emissiveIntensity: 0.85,
       roughness: 0.4
     });
 
@@ -264,50 +318,67 @@ export class ShrineSystem {
     group.add(floor);
 
     // Glowing Zonai Energy Floor Inlays
-    const inlay = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, cfg.size.z - 4), runeMat);
+    const inlay = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.05, cfg.size.z - 4), runeMat);
     inlay.position.set(0, 0.03, 0);
     group.add(inlay);
 
-    // 2. Walls (Left, Right, Back, Front)
-    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1.0, cfg.size.y, cfg.size.z), stoneMat);
-    wallL.position.set(-cfg.size.x / 2, cfg.size.y / 2, 0);
+    // 2. Solid Chamber Walls with registered collision
+    const halfX = cfg.size.x / 2;
+    const halfZ = cfg.size.z / 2;
+    const ox = cfg.origin.x;
+    const oy = cfg.origin.y;
+    const oz = cfg.origin.z;
+
+    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1.2, cfg.size.y, cfg.size.z), stoneMat);
+    wallL.position.set(-halfX, cfg.size.y / 2, 0);
     group.add(wallL);
 
-    const wallR = new THREE.Mesh(new THREE.BoxGeometry(1.0, cfg.size.y, cfg.size.z), stoneMat);
-    wallR.position.set(cfg.size.x / 2, cfg.size.y / 2, 0);
+    const wallR = new THREE.Mesh(new THREE.BoxGeometry(1.2, cfg.size.y, cfg.size.z), stoneMat);
+    wallR.position.set(halfX, cfg.size.y / 2, 0);
     group.add(wallR);
 
-    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(cfg.size.x, cfg.size.y, 1.0), stoneMat);
-    wallBack.position.set(0, cfg.size.y / 2, cfg.size.z / 2);
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(cfg.size.x, cfg.size.y, 1.2), stoneMat);
+    wallBack.position.set(0, cfg.size.y / 2, halfZ);
     group.add(wallBack);
 
-    const wallFront = new THREE.Mesh(new THREE.BoxGeometry(cfg.size.x, cfg.size.y, 1.0), stoneMat);
-    wallFront.position.set(0, cfg.size.y / 2, -cfg.size.z / 2);
+    const wallFront = new THREE.Mesh(new THREE.BoxGeometry(cfg.size.x, cfg.size.y, 1.2), stoneMat);
+    wallFront.position.set(0, cfg.size.y / 2, -halfZ);
     group.add(wallFront);
 
-    // 3. Torches & Atmosphere
+    // Register all 4 outer walls in collision system
+    collision.addBox(ox - halfX - 1.0, ox - halfX + 0.6, oz - halfZ, oz + halfZ, oy, oy + cfg.size.y, 'DungeonWall_L_' + cfg.id);
+    collision.addBox(ox + halfX - 0.6, ox + halfX + 1.0, oz - halfZ, oz + halfZ, oy, oy + cfg.size.y, 'DungeonWall_R_' + cfg.id);
+    collision.addBox(ox - halfX, ox + halfX, oz + halfZ - 0.6, oz + halfZ + 1.0, oy, oy + cfg.size.y, 'DungeonWall_Back_' + cfg.id);
+    collision.addBox(ox - halfX, ox + halfX, oz - halfZ - 1.0, oz - halfZ + 0.6, oy, oy + cfg.size.y, 'DungeonWall_Front_' + cfg.id);
+
+    // 3. Torches & Sconces
     [-1, 1].forEach(side => {
       [-12, 0, 12].forEach(zPos => {
-        const torchLight = new THREE.PointLight(0x10b981, 2.2, 18);
-        torchLight.position.set(side * (cfg.size.x / 2 - 1.2), 3.5, zPos);
+        const torchLight = new THREE.PointLight(0x10b981, 2.4, 20);
+        torchLight.position.set(side * (halfX - 1.4), 3.5, zPos);
         group.add(torchLight);
 
         const sconce = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.4), runeMat);
-        sconce.position.set(side * (cfg.size.x / 2 - 0.6), 3.2, zPos);
+        sconce.position.set(side * (halfX - 0.6), 3.2, zPos);
         group.add(sconce);
       });
     });
 
-    // 4. Entrance Elevator Warp Platform (At -Z end of chamber)
-    const entrancePad = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 0.3, 12), runeMat);
-    entrancePad.position.set(0, 0.15, -cfg.size.z / 2 + 5);
+    // 4. Entrance & Exit Warp Pad (Green glowing Zonai rings at -Z end)
+    const entrancePad = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.6, 0.35, 16), runeMat);
+    entrancePad.position.set(0, 0.18, -halfZ + 5);
     group.add(entrancePad);
 
-    // 5. Sage Altar Sarcophagus (At +Z end of chamber)
-    const altarGroup = new THREE.Group();
-    altarGroup.position.set(0, 0.2, cfg.size.z / 2 - 6);
+    const exitRings = new THREE.Mesh(new THREE.RingGeometry(0.8, 2.2, 16), new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide }));
+    exitRings.rotation.x = -Math.PI / 2;
+    exitRings.position.set(0, 0.36, -halfZ + 5);
+    group.add(exitRings);
 
-    const dais = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4.0, 1.0, 8), stoneMat);
+    // 5. Sage Altar Platform & Opening Treasure Chest (+Z end)
+    const altarGroup = new THREE.Group();
+    altarGroup.position.set(0, 0.2, halfZ - 6);
+
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 4.2, 1.0, 8), stoneMat);
     dais.position.y = 0.5;
     altarGroup.add(dais);
 
@@ -321,22 +392,48 @@ export class ShrineSystem {
     auraRings.position.y = 2.4;
     altarGroup.add(auraRings);
 
-    const altarLight = new THREE.PointLight(0x34d399, 2.8, 16);
+    const altarLight = new THREE.PointLight(0x34d399, 3.0, 18);
     altarLight.position.y = 3.0;
     altarGroup.add(altarLight);
 
+    // Interactive Sage Treasure Chest in front of altar
+    const chestGroup = new THREE.Group();
+    chestGroup.position.set(0, 1.05, -2.4);
+
+    const chestBase = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 0.7, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0xca8a04, metalness: 0.85, roughness: 0.25 })
+    );
+    chestBase.position.y = 0.35;
+    chestGroup.add(chestBase);
+
+    const chestLidPivot = new THREE.Group();
+    chestLidPivot.position.set(0, 0.7, -0.5);
+    const chestLid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 1.5, 12, 1, false, 0, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.9, roughness: 0.2 })
+    );
+    chestLid.rotation.z = Math.PI / 2;
+    chestLid.position.set(0, 0, 0.5);
+    chestLidPivot.add(chestLid);
+    chestGroup.add(chestLidPivot);
+
+    altarGroup.add(chestGroup);
     group.add(altarGroup);
 
     // 6. Interactive Dungeon Puzzle Mechanisms
     let puzzleProps = [];
+    cfg.chestLidPivot = chestLidPivot;
+    cfg.chestGroup = chestGroup;
+    cfg.isChestOpened = false;
 
     if (cfg.puzzleType === 'sphere_socket') {
-      // Puzzle: Ancient Zonai Root Sphere & Socket
+      // Trial 1: Zonai Sphere & Socket Puzzle
       const sphere = new THREE.Mesh(
         new THREE.SphereGeometry(1.2, 16, 16),
         new THREE.MeshStandardMaterial({ color: 0x14b8a6, emissive: 0x0f766e, roughness: 0.3 })
       );
-      sphere.position.set(4, 1.2, -4);
+      sphere.position.set(5, 1.2, -4);
       sphere.userData = {
         isFusable: true,
         fuseType: 'boulder',
@@ -345,7 +442,6 @@ export class ShrineSystem {
       group.add(sphere);
       puzzleProps.push(sphere);
 
-      // Target socket
       const socket = new THREE.Mesh(
         new THREE.TorusGeometry(1.4, 0.25, 8, 20),
         new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, roughness: 0.5 })
@@ -354,7 +450,7 @@ export class ShrineSystem {
       socket.position.set(0, 0.15, 6);
       group.add(socket);
 
-      // Gate blocking the altar
+      // Gate blocking the altar room
       const gate = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 0.4), stoneMat);
       gate.position.set(0, 3, 10);
       group.add(gate);
@@ -364,7 +460,7 @@ export class ShrineSystem {
       cfg.gate = gate;
       cfg.solved = false;
     } else if (cfg.puzzleType === 'magnetic_bridge') {
-      // Void chasm in middle
+      // Trial 2: Magnetic Void Chasm & Pressure Plate
       const chasmVoid = new THREE.Mesh(new THREE.BoxGeometry(cfg.size.x - 2, 0.1, 14), new THREE.MeshBasicMaterial({ color: 0x020617 }));
       chasmVoid.position.set(0, 0.05, 0);
       group.add(chasmVoid);
@@ -372,8 +468,8 @@ export class ShrineSystem {
       // Movable Magnetic Slabs
       for (let s = 0; s < 2; s++) {
         const slab = new THREE.Mesh(
-          new THREE.BoxGeometry(4.5, 0.4, 8.5),
-          new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 })
+          new THREE.BoxGeometry(4.8, 0.4, 8.5),
+          new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.3 })
         );
         slab.position.set(-6 + s * 12, 0.4, -6);
         slab.userData = {
@@ -384,14 +480,29 @@ export class ShrineSystem {
         group.add(slab);
         puzzleProps.push(slab);
       }
+
+      // Pressure Plate on far side of chasm
+      const plate = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.6, 1.8, 0.2, 12),
+        new THREE.MeshStandardMaterial({ color: 0x059669, emissive: 0x10b981, roughness: 0.4 })
+      );
+      plate.position.set(0, 0.1, 10);
+      group.add(plate);
+
+      const gate = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 0.4), stoneMat);
+      gate.position.set(0, 3, 13);
+      group.add(gate);
+
+      cfg.plate = plate;
+      cfg.gate = gate;
+      cfg.solved = false;
     } else if (cfg.puzzleType === 'recall_ramp') {
-      // Steep ramp
+      // Trial 3: Chronomancy Ramp & Rolling Boulder
       const ramp = new THREE.Mesh(new THREE.BoxGeometry(8, 0.5, 24), stoneMat);
       ramp.rotation.x = 0.25;
       ramp.position.set(0, 3.2, 0);
       group.add(ramp);
 
-      // Rolling boulder with rolling trajectory
       const rollingBoulder = new THREE.Mesh(
         new THREE.DodecahedronGeometry(1.6, 1),
         new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.7 })
@@ -407,6 +518,59 @@ export class ShrineSystem {
       group.add(rollingBoulder);
       puzzleProps.push(rollingBoulder);
       cfg.rollingBoulder = rollingBoulder;
+      cfg.solved = true;
+    } else if (cfg.puzzleType === 'submerged_currents') {
+      // Trial 4: Flooded Water Chamber with Submerged Crystal Switch
+      const waterVolume = new THREE.Mesh(
+        new THREE.BoxGeometry(cfg.size.x - 2, 5.0, 20),
+        new THREE.MeshStandardMaterial({
+          color: 0x0284c7,
+          transparent: true,
+          opacity: 0.75,
+          roughness: 0.05
+        })
+      );
+      waterVolume.position.set(0, 2.5, 0);
+      group.add(waterVolume);
+
+      // Submerged crystal switch
+      const switchCrystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(1.0),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.9 })
+      );
+      switchCrystal.position.set(0, 1.2, 0);
+      group.add(switchCrystal);
+
+      const gate = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 0.4), stoneMat);
+      gate.position.set(0, 3, 11);
+      group.add(gate);
+
+      cfg.switchCrystal = switchCrystal;
+      cfg.gate = gate;
+      cfg.solved = false;
+    } else if (cfg.puzzleType === 'flame_braziers') {
+      // Trial 5: Dual Braziers to ignite
+      const brazierMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.8 });
+      cfg.braziers = [];
+
+      [-4, 4].forEach((bx, idx) => {
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 1.6, 8), brazierMat);
+        b.position.set(bx, 0.8, 8);
+        group.add(b);
+
+        const flameLight = new THREE.PointLight(0xff4500, 0, 15);
+        flameLight.position.set(bx, 2.0, 8);
+        group.add(flameLight);
+
+        cfg.braziers.push({ mesh: b, light: flameLight, lit: false, pos: new THREE.Vector3(bx, 1.6, 8) });
+      });
+
+      const gate = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 0.4), stoneMat);
+      gate.position.set(0, 3, 11);
+      group.add(gate);
+
+      cfg.gate = gate;
+      cfg.solved = false;
     }
 
     this.scene.add(group);
@@ -414,8 +578,9 @@ export class ShrineSystem {
     return {
       cfg,
       group,
-      entranceWorldPos: cfg.origin.clone().add(new THREE.Vector3(0, 1.2, -cfg.size.z / 2 + 5)),
-      altarWorldPos: cfg.origin.clone().add(new THREE.Vector3(0, 1.8, cfg.size.z / 2 - 6)),
+      entranceWorldPos: cfg.origin.clone().add(new THREE.Vector3(0, 1.2, -halfZ + 5)),
+      altarWorldPos: cfg.origin.clone().add(new THREE.Vector3(0, 1.8, halfZ - 6)),
+      chestWorldPos: cfg.origin.clone().add(new THREE.Vector3(0, 1.2, halfZ - 8.4)),
       altarGroup,
       puzzleProps
     };
@@ -550,7 +715,7 @@ export class ShrineSystem {
         const socketPos = d.cfg.origin.clone().add(new THREE.Vector3(0, 0, 6));
         const distToSocket = sphere.position.distanceTo(new THREE.Vector3(0, 0, 6));
 
-        if (distToSocket < 1.6) {
+        if (distToSocket < 1.8) {
           d.cfg.solved = true;
           sphere.position.set(0, 0.8, 6);
           audio.playShrineChime?.();
@@ -559,18 +724,61 @@ export class ShrineSystem {
           if (window.showGameNotification) {
             window.showGameNotification('✨ Puzzle Solved: Ancient Sanctum Gate Unlocked!');
           }
-          // Lower gate
-          d.cfg.gate.position.y = -2.0;
+          d.cfg.gate.position.y = -2.5;
+        }
+      } else if (d.cfg.puzzleType === 'magnetic_bridge' && !d.cfg.solved) {
+        // Step on pressure plate on far side of chasm
+        const platePos = d.cfg.origin.clone().add(new THREE.Vector3(0, 0.1, 10));
+        const distToPlate = player.position.distanceTo(platePos);
+        if (distToPlate < 2.2) {
+          d.cfg.solved = true;
+          d.cfg.plate.position.y = -0.05;
+          audio.playShrineChime?.();
+          audio.playCosmicSlam?.();
+          this.engine.spawnCosmicBurst(platePos, 45);
+          if (window.showGameNotification) {
+            window.showGameNotification('⚡ Resonance Triggered: Sanctuary Portcullis Raised!');
+          }
+          d.cfg.gate.position.y = -2.5;
         }
       } else if (d.cfg.puzzleType === 'recall_ramp') {
         const b = d.cfg.rollingBoulder;
         if (!b.userData.isRecalling) {
           b.userData.rampTimer += delta * 1.8;
-          // Rolling boulder motion down the ramp
           const rampT = (Math.sin(b.userData.rampTimer) + 1) * 0.5;
           b.position.z = 10 - rampT * 22;
           b.position.y = 6.5 - rampT * 5.5;
           b.rotation.x += delta * 4;
+        }
+      } else if (d.cfg.puzzleType === 'submerged_currents') {
+        const switchPos = d.cfg.origin.clone().add(new THREE.Vector3(0, 1.2, 0));
+        const distToSwitch = player.position.distanceTo(switchPos);
+        if (distToSwitch < 3.2 && !d.cfg.solved) {
+          if (window.setInteractPrompt) {
+            window.setInteractPrompt('[E] Activate Submerged Zonai Switch');
+          }
+        }
+      } else if (d.cfg.puzzleType === 'flame_braziers' && !d.cfg.solved) {
+        const allLit = d.cfg.braziers.every(b => b.lit);
+        if (allLit) {
+          d.cfg.solved = true;
+          audio.playShrineChime?.();
+          audio.playCosmicSlam?.();
+          this.engine.spawnCosmicBurst(d.cfg.origin.clone().add(new THREE.Vector3(0, 3, 11)), 50);
+          if (window.showGameNotification) {
+            window.showGameNotification('🔥 Dual Braziers Kindled: Sacred Vault Unsealed!');
+          }
+          d.cfg.gate.position.y = -2.5;
+        }
+      }
+
+      // Check Treasure Chest Proximity
+      if (d.chestWorldPos) {
+        const chestDist = player.position.distanceTo(d.chestWorldPos);
+        if (chestDist < 3.0 && !d.cfg.isChestOpened) {
+          if (window.setInteractPrompt) {
+            window.setInteractPrompt(`[E] Open Sage Treasure Chest (${d.cfg.reward?.item || 'Relic'})`);
+          }
         }
       }
     }
@@ -579,15 +787,61 @@ export class ShrineSystem {
   interact(player) {
     if (!player) return false;
 
-    // 1. Inside 3D Dungeon: Interact with Altar or Exit
+    // 1. Inside 3D Dungeon: Interact with Chest, Puzzles, Altar or Exit
     if (this.activeDungeon) {
       const d = this.activeDungeon;
+
+      // Check Chest
+      if (d.chestWorldPos) {
+        const chestDist = player.position.distanceTo(d.chestWorldPos);
+        if (chestDist < 3.2 && !d.cfg.isChestOpened) {
+          this.openDungeonChest(d, player);
+          return true;
+        }
+      }
+
+      // Check Submerged Switch
+      if (d.cfg.puzzleType === 'submerged_currents' && !d.cfg.solved) {
+        const switchPos = d.cfg.origin.clone().add(new THREE.Vector3(0, 1.2, 0));
+        if (player.position.distanceTo(switchPos) < 3.4) {
+          d.cfg.solved = true;
+          d.cfg.switchCrystal.material.emissiveIntensity = 2.0;
+          d.cfg.gate.position.y = -2.5;
+          audio.playShrineChime?.();
+          audio.playCosmicSlam?.();
+          this.engine.spawnCosmicBurst(switchPos, 45);
+          if (window.showGameNotification) {
+            window.showGameNotification('🌊 Water Grotto Switch Activated: Underwater Sanctuary Opened!');
+          }
+          return true;
+        }
+      }
+
+      // Check Flame Braziers
+      if (d.cfg.puzzleType === 'flame_braziers' && !d.cfg.solved) {
+        for (const b of d.cfg.braziers) {
+          const worldBPos = d.cfg.origin.clone().add(b.pos);
+          if (player.position.distanceTo(worldBPos) < 3.5 && !b.lit) {
+            b.lit = true;
+            b.light.intensity = 3.5;
+            audio.playCosmicSlam?.();
+            this.engine.spawnParticles(worldBPos, 35, 0xff4500, 6, 0.25);
+            if (window.showGameNotification) {
+              window.showGameNotification('🔥 Ancient Brazier Ignited!');
+            }
+            return true;
+          }
+        }
+      }
+
+      // Check Altar
       const altarDist = player.position.distanceTo(d.altarWorldPos);
       if (altarDist < 4.0) {
         this.claimDungeonAltarBlessing(d, player);
         return true;
       }
 
+      // Check Exit
       const exitDist = player.position.distanceTo(d.entranceWorldPos);
       if (exitDist < 3.5) {
         this.exitDungeon(player);
@@ -615,6 +869,31 @@ export class ShrineSystem {
     }
 
     return false;
+  }
+
+  openDungeonChest(dungeon, player) {
+    const cfg = dungeon.cfg;
+    if (cfg.isChestOpened) return;
+
+    cfg.isChestOpened = true;
+    if (cfg.chestLidPivot) {
+      cfg.chestLidPivot.rotation.x = -Math.PI * 0.55;
+    }
+
+    audio.playCosmicSlam?.();
+    audio.playShrineChime?.();
+    this.engine.spawnCosmicBurst(dungeon.chestWorldPos, 60);
+    this.engine.applyScreenShake(0.4);
+
+    const r = cfg.reward || {};
+    player.inventory.lightsOfBlessing = (player.inventory.lightsOfBlessing || 0) + (r.light || 1);
+    player.soilBiomass += (r.biomass || 100);
+    if (r.wood) player.inventory.wood = (player.inventory.wood || 0) + r.wood;
+    if (r.stardust) player.inventory.stardust = (player.inventory.stardust || 0) + r.stardust;
+
+    if (window.showGameNotification) {
+      window.showGameNotification(`🎁 TREASURE CLAIMED: ${r.item || 'Relic'}! Received +1 Light of Blessing & +${r.biomass} Biomass!`);
+    }
   }
 
   enterDungeonChamber(shrine, player) {

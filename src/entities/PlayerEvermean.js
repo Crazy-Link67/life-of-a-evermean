@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TreeModelGenerator } from './TreeModelGenerator.js';
 import { audio } from '../core/AudioManager.js';
+import { collision } from '../core/Collision.js';
 
 // The Player Evermean: First-person tree controller with TOTK head-slam, swimming, disguise, and evolution
 export class PlayerEvermean {
@@ -42,6 +43,8 @@ export class PlayerEvermean {
     // States
     this.isGrounded = false;
     this.isSwimming = false;
+    this.isUnderwater = false;
+    this.swimBubblesTimer = 0;
     this.isDisguised = false;
     this.isRootBurrowed = false;
     this.isAttacking = false;
@@ -146,6 +149,76 @@ export class PlayerEvermean {
     if (window.showGameNotification) {
       window.showGameNotification(this.cameraMode === 'first_person' ? '👁️ Evermean First-Person Knot-Hole Sight' : '🌲 Third-Person Grove View');
     }
+  }
+
+  // World Interactions: Lightroot activation in Depths, Sunken Zora Relic Chests in lakebed
+  interactWorld(environment) {
+    if (!environment) return false;
+
+    // 1. Ancient Zonai Lightroot in The Depths realm
+    if (environment.lightroot && !environment.lightroot.userData?.activated) {
+      const rootPos = environment.lightroot.userData.position || environment.lightroot.position;
+      const dist = this.position.distanceTo(rootPos);
+      if (dist < 6.5) {
+        environment.lightroot.userData.activated = true;
+        audio.playLightrootIgnite?.();
+        if (this.engine) {
+          this.engine.spawnShockwave(rootPos, 18.0, 0xfacc15);
+          this.engine.spawnCosmicBurst(rootPos, 80);
+          this.engine.applyScreenShake(0.7);
+        }
+
+        // Turn Lightroot PointLight to brilliant brightness illuminating Depths
+        environment.lightroot.traverse(child => {
+          if (child.isPointLight) {
+            child.intensity = 8.5;
+            child.distance = 250;
+          }
+        });
+
+        // Restore health, full moisture, grant blessings
+        this.barkHp = this.maxBarkHp;
+        this.moisture = this.maxMoisture;
+        this.inventory.lightsOfBlessing = (this.inventory.lightsOfBlessing || 0) + 1;
+        this.soilBiomass += 200;
+        this.inventory.stardust = (this.inventory.stardust || 0) + 3;
+
+        if (window.showGameNotification) {
+          window.showGameNotification('🌟 LIGHTROOT AWAKENED! Ancient roots dispel the Depths Gloom! (+1 Light of Blessing, +200 Biomass, Full Restoration)');
+        }
+        return true;
+      }
+    }
+
+    // 2. Sunken Ancient Zora Chests on Lakebed
+    if (environment.underwaterChests) {
+      for (const chest of environment.underwaterChests) {
+        const chestPos = chest.userData?.position || chest.position;
+        const dist = this.position.distanceTo(chestPos);
+        if (dist < 4.0 && !chest.userData?.opened) {
+          chest.userData.opened = true;
+          chest.rotation.x = -0.4;
+          audio.playChestOpen?.();
+          if (this.engine) {
+            this.engine.spawnShockwave(chestPos, 4.5, 0x38bdf8);
+            this.engine.spawnCosmicBurst(chestPos, 45);
+          }
+
+          this.inventory.lightsOfBlessing = (this.inventory.lightsOfBlessing || 0) + 1;
+          this.inventory.rupees = (this.inventory.rupees || 0) + 100;
+          this.soilBiomass += 150;
+          this.inventory.stardust = (this.inventory.stardust || 0) + 5;
+          this.inventory.acorns = (this.inventory.acorns || 0) + 10;
+
+          if (window.showGameNotification) {
+            window.showGameNotification('🔱 Discovered Sunken Zora Relic Chest! (+1 Light of Blessing, +100 Rupees, +150 Biomass, +5 Stardust)');
+          }
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   // Zelda TOTK Ultrahand Ability: Magnetic grab & carry loose boulders/items
@@ -978,7 +1051,7 @@ export class PlayerEvermean {
         }
 
         const baseSpeed = 5.2 * (this.speciesConfig.speedMult || 1.0);
-        const swimSpeedMult = this.speciesConfig.presetKey === 'palm' ? 1.4 : 0.8;
+        const swimSpeedMult = this.speciesConfig.presetKey === 'palm' ? 1.4 : 0.85;
         const glideSpeedMult = this.isGliding ? 1.45 : 1.0;
         const currentSpeed = (this.isSwimming ? baseSpeed * swimSpeedMult : baseSpeed) * (isSprinting ? 1.6 : 1.0) * glideSpeedMult;
 
@@ -996,6 +1069,9 @@ export class PlayerEvermean {
 
         this.position.x += worldMoveX * currentSpeed * delta;
         this.position.z += worldMoveZ * currentSpeed * delta;
+
+        // Solid Obstacle Collision: resolve sliding against trees, full cylindrical logs, boulders, palisades, dungeon walls
+        collision.resolvePlayerCollision(this.position, 0.55, 2.2);
 
         // Footstep / Swim sound timer
         this.stepTimer += delta * (isSprinting ? 1.8 : 1.0);
@@ -1021,11 +1097,24 @@ export class PlayerEvermean {
         }
       }
 
-      // Jump / Paddle up
-      if (input.isKeyDown('Space')) {
-        if (this.isSwimming) {
-          this.velocity.y = 3.5;
-        } else if (this.isGrounded) {
+      // 3D Underwater Swim Controls (Space to paddle up, ControlLeft/KeyC to dive, or pitch-based swim)
+      if (this.isSwimming) {
+        let verticalSwimSpeed = 0;
+        if (input.isKeyDown('Space')) {
+          verticalSwimSpeed += 4.5;
+        }
+        if (input.isKeyDown('ControlLeft') || input.isKeyDown('KeyC')) {
+          verticalSwimSpeed -= 4.5;
+        }
+        if (input.isKeyDown('KeyW')) {
+          verticalSwimSpeed += Math.sin(this.pitch) * 4.0;
+        } else if (input.isKeyDown('KeyS')) {
+          verticalSwimSpeed -= Math.sin(this.pitch) * 4.0;
+        }
+        this.velocity.y = THREE.MathUtils.lerp(this.velocity.y, verticalSwimSpeed, delta * 5.0);
+      } else {
+        // Jump (when grounded on dry land)
+        if (input.isKeyDown('Space') && this.isGrounded) {
           this.velocity.y = 6.8;
           this.isGrounded = false;
           audio.playRootStep(1.3);
@@ -1033,8 +1122,8 @@ export class PlayerEvermean {
       }
     }
 
-    // 5. Physics & Terrain Elevation (including Great Sky Islands plateaus)
-    let effectiveGroundHeight = this.terrain.getHeight(this.position.x, this.position.z);
+    // 5. Physics & Terrain Elevation (including Great Sky Islands plateaus & Depths underworld)
+    let effectiveGroundHeight = this.terrain.getHeight(this.position.x, this.position.z, this.position.y);
     let isOnSkyIsland = false;
 
     if (environment && environment.skyIslands) {
@@ -1066,14 +1155,61 @@ export class PlayerEvermean {
     }
 
     if (this.isSwimming) {
-      // Buoyancy: float on water surface (y = 0.0)
-      const targetY = 0.1;
-      this.position.y = THREE.MathUtils.lerp(this.position.y, targetY, delta * 6);
-      this.velocity.y = 0;
-      this.isGrounded = false;
+      // 3D Underwater Swimming & Natural Buoyancy
+      this.position.y += this.velocity.y * delta;
+
+      const waterSurface = this.terrain.waterLevel || 0.0;
+      const isInputtingVertical = input.isKeyDown('Space') || input.isKeyDown('ControlLeft') || input.isKeyDown('KeyC') || (input.isKeyDown('KeyW') && Math.abs(this.pitch) > 0.2);
+      if (!isInputtingVertical) {
+        // Gentle natural buoyancy toward water surface
+        this.position.y = THREE.MathUtils.lerp(this.position.y, Math.min(this.position.y + 0.4, waterSurface + 0.05), delta * 1.8);
+        this.velocity.y *= Math.max(0, 1.0 - delta * 2.5);
+      }
+
+      // Lake Bed & Surface Bounds clamping
+      const bedY = this.terrain.getHeight(this.position.x, this.position.z, this.position.y);
+      const minSwimY = bedY + 0.85;
+      const maxSwimY = waterSurface + 0.25;
+
+      if (this.position.y < minSwimY) {
+        this.position.y = minSwimY;
+        if (this.velocity.y < 0) this.velocity.y = 0;
+      }
+      if (this.position.y > maxSwimY) {
+        this.position.y = maxSwimY;
+        if (this.velocity.y > 0) this.velocity.y = 0;
+      }
+
+      this.isGrounded = (this.position.y <= minSwimY + 0.1);
       if (this.isGliding) {
         this.isGliding = false;
         this.detachGliderMesh();
+      }
+
+      // Underwater State & Audio transitions
+      const wasUnderwater = this.isUnderwater;
+      this.isUnderwater = (this.position.y < waterSurface - 0.35);
+
+      if (!wasUnderwater && this.isUnderwater) {
+        audio.playDiveSplash?.();
+        audio.startUnderwaterAmbience?.();
+        if (this.engine) this.engine.spawnWaterSplash(this.position, 12);
+      } else if (wasUnderwater && !this.isUnderwater) {
+        audio.stopUnderwaterAmbience?.();
+        audio.playSwimPaddle?.();
+        if (this.engine) this.engine.spawnWaterSplash(this.position, 10);
+      }
+
+      // Emit bubbles when swimming underwater
+      const isMovingUnderwater = input.isKeyDown('KeyW') || input.isKeyDown('KeyS') || input.isKeyDown('KeyA') || input.isKeyDown('KeyD');
+      if (this.isUnderwater && isMovingUnderwater) {
+        this.swimBubblesTimer = (this.swimBubblesTimer || 0) + delta;
+        if (this.swimBubblesTimer > 0.2) {
+          this.swimBubblesTimer = 0;
+          if (this.engine) {
+            this.engine.spawnParticles(this.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 3, 0xa5f3fc, 0.8, 0.06);
+          }
+        }
       }
     } else {
       // Zelda Deku Leaf / Paraglider gliding (hold Space mid-air while descending)
@@ -1096,7 +1232,7 @@ export class PlayerEvermean {
         this.detachGliderMesh();
       }
 
-      // Gravity & Ground Snapping
+      // Gravity & Ground Snapping (allows freefall into the Gloom Chasm down to -90m Depths!)
       if (!this.isGliding) {
         this.velocity.y -= 18.0 * delta;
       }
@@ -1114,6 +1250,9 @@ export class PlayerEvermean {
       }
     }
 
+    // Resolve collision against obstacles again after vertical displacement
+    collision.resolvePlayerCollision(this.position, 0.55, 2.2);
+
     // Check Zonai Boost Pads (Ascend / High sky launch) - 100% Reliable 2D Horizontal & Foot-Level Detection
     this.launchCooldown = Math.max(0, (this.launchCooldown || 0) - delta);
     if (this.launchCooldown <= 0 && environment && environment.zonaiPads) {
@@ -1126,8 +1265,9 @@ export class PlayerEvermean {
         const distH = Math.hypot(dx, dz);
         const padRadius = pad.userData?.radius || 2.8;
 
-        if (distH <= padRadius && Math.abs(footY - pad.position.y) < 2.5) {
-          this.velocity.y = 68.0; // High sky launch to soar above Great Sky Islands!
+        if (distH <= padRadius && Math.abs(footY - pad.position.y) < 3.2) {
+          const launchVel = pad.userData?.launchVelocity || 68.0;
+          this.velocity.y = launchVel; // High sky launch or depths ascend!
           this.isGrounded = false;
           this.launchCooldown = 0.8;
           if (this.isGliding) {
@@ -1140,7 +1280,11 @@ export class PlayerEvermean {
           this.engine.spawnParticles(pad.position, 75, 0x34d399, 16, 0.3);
           this.engine.applyScreenShake(0.65);
           if (window.showGameNotification) {
-            window.showGameNotification('🚀 ZONAI BOOST PAD LAUNCH! Catapulted into the Great Sky Islands! (Hold Space to Glide)');
+            if (pad.userData?.isDepthsAscend) {
+              window.showGameNotification('🚀 DEPTHS ASCEND GEYSER! Supercharged updraft launched you to the surface! (Hold Space to Glide)');
+            } else {
+              window.showGameNotification('🚀 ZONAI BOOST PAD LAUNCH! Catapulted into the Great Sky Islands! (Hold Space to Glide)');
+            }
           }
           break;
         }

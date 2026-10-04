@@ -24,6 +24,8 @@ export class AudioManager {
     this.waterSource = null;
     this.ultrahandOsc = null;
     this.ultrahandGain = null;
+    this.underwaterGain = null;
+    this.underwaterSource = null;
     this.currentWeather = 'CLEAR';
     this.lastPianoTime = 0;
   }
@@ -911,6 +913,157 @@ export class AudioManager {
       osc.start(t + idx * 0.12);
       osc.stop(t + idx * 0.12 + 2.5);
     });
+  }
+
+  // Zelda-style Treasure Chest Opening Fanfare
+  playChestOpen() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Ascending brass/reed arpeggio
+    const notes = [329.63, 392.00, 493.88, 587.33, 659.25, 783.99, 987.77];
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.09);
+
+      gain.gain.setValueAtTime(0.18, t + idx * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.09 + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + idx * 0.09);
+      osc.stop(t + idx * 0.09 + 0.38);
+    });
+
+    // Grand culminating golden chord chime
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const tEnd = this.ctx.currentTime;
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, tEnd);
+        gain.gain.setValueAtTime(0.28, tEnd);
+        gain.gain.exponentialRampToValueAtTime(0.001, tEnd + 1.8);
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(tEnd);
+        osc.stop(tEnd + 1.9);
+      });
+    }, notes.length * 90);
+  }
+
+  // Ancient Zonai Lightroot Ignition Booming Reverberation
+  playLightrootIgnite() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Deep subterranean resonant sub-bass surge
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sawtooth';
+    subOsc.frequency.setValueAtTime(55, t);
+    subOsc.frequency.exponentialRampToValueAtTime(110, t + 1.8);
+
+    subGain.gain.setValueAtTime(0.45, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.sfxGain);
+    subOsc.start(t);
+    subOsc.stop(t + 3.3);
+
+    // Radiant ascending sacred harmonic flourish
+    [220, 277.18, 329.63, 440, 554.37, 659.25, 880].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + 0.4 + idx * 0.15);
+      osc.frequency.linearRampToValueAtTime(freq * 1.05, t + 0.4 + idx * 0.15 + 1.2);
+
+      gain.gain.setValueAtTime(0.22, t + 0.4 + idx * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4 + idx * 0.15 + 2.5);
+
+      osc.connect(gain);
+      gain.connect(this.musicGain);
+      osc.start(t + 0.4 + idx * 0.15);
+      osc.stop(t + 0.4 + idx * 0.15 + 2.6);
+    });
+  }
+
+  // Dive Splash sound when breaching water surface downwards
+  playDiveSplash() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    const noiseBuffer = this.createNoiseBuffer(0.5);
+    if (noiseBuffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(900, t);
+      filter.frequency.exponentialRampToValueAtTime(180, t + 0.45);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.4, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+      noise.start(t);
+    }
+  }
+
+  // Deep underwater muffled soundscape
+  startUnderwaterAmbience() {
+    if (!this.ctx || this.underwaterSource) return;
+    this.resume();
+
+    const buffer = this.createNoiseBuffer(2.5);
+    if (!buffer) return;
+
+    this.underwaterSource = this.ctx.createBufferSource();
+    this.underwaterSource.buffer = buffer;
+    this.underwaterSource.loop = true;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 220; // Deep muffled aquatic lowpass
+
+    this.underwaterGain = this.ctx.createGain();
+    this.underwaterGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+    this.underwaterGain.gain.linearRampToValueAtTime(0.35, this.ctx.currentTime + 0.4);
+
+    this.underwaterSource.connect(filter);
+    filter.connect(this.underwaterGain);
+    this.underwaterGain.connect(this.ambientGain);
+    this.underwaterSource.start();
+  }
+
+  stopUnderwaterAmbience() {
+    if (!this.ctx || !this.underwaterSource) return;
+    const t = this.ctx.currentTime;
+    if (this.underwaterGain) {
+      this.underwaterGain.gain.linearRampToValueAtTime(0.001, t + 0.3);
+    }
+    setTimeout(() => {
+      try {
+        if (this.underwaterSource) {
+          this.underwaterSource.stop();
+          this.underwaterSource.disconnect();
+          this.underwaterSource = null;
+        }
+      } catch (e) {}
+    }, 350);
   }
 }
 

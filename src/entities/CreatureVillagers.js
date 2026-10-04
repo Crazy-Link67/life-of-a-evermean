@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TextureGenerator } from '../core/TextureGenerator.js';
 
 // Advanced Creature & Wildlife System
 // Features: Detailed Bokoblin Woodcutters, Expressive Beaverfolk, Leaf-Masked Koroks, and Forest Deer
@@ -29,79 +30,116 @@ export class CreatureVillagers {
     this.scene = scene;
     this.terrain = terrain;
 
-    // 1. Spawn Woodcutter Goblins around camp (x: 65, z: -40)
+    // 1. Camp 1: Spawn Woodcutter Goblins around camp (x: 75, z: -50)
     for (let i = 0; i < 7; i++) {
-      this.spawnGoblin(65 + (Math.random() - 0.5) * 22, -40 + (Math.random() - 0.5) * 22, i === 0);
+      this.spawnGoblin(75 + (Math.random() - 0.5) * 22, -50 + (Math.random() - 0.5) * 22, i === 0, 'forest');
+    }
+
+    // 2. Camp 2: Spawn Mountain Skull Fortress Garrison (x: -180, z: -150)
+    for (let i = 0; i < 9; i++) {
+      this.spawnGoblin(-180 + (Math.random() - 0.5) * 26, -150 + (Math.random() - 0.5) * 26, i === 0, 'mountain');
+    }
+
+    // 3. Camp 3: Spawn River Marauders (x: -70, z: 130)
+    for (let i = 0; i < 6; i++) {
+      this.spawnGoblin(-70 + (Math.random() - 0.5) * 20, 130 + (Math.random() - 0.5) * 20, i === 0, 'river');
+    }
+
+    // 4. Camp 4: Spawn Ruined Castle Citadel Garrison (x: 190, z: -140)
+    for (let i = 0; i < 8; i++) {
+      this.spawnGoblin(190 + (Math.random() - 0.5) * 24, -140 + (Math.random() - 0.5) * 24, i === 0, 'castle');
+    }
+
+    // 5. Camp 5: Spawn Depths Gloom Miners (x: 130, y: -90, z: 130)
+    for (let i = 0; i < 7; i++) {
+      this.spawnGoblin(130 + (Math.random() - 0.5) * 24, 130 + (Math.random() - 0.5) * 24, i === 0, 'depths', -90);
     }
 
     // Spawn Woodland Like-Like Ambush Predators
     this.spawnLikeLike(35, -15);
     this.spawnLikeLike(-35, -55);
+    this.spawnLikeLike(110, -100);
 
-    // 2. Spawn River Beaverfolk around village (x: -28, z: 25)
+    // Spawn River Beaverfolk around village (x: -35, z: 30)
+    for (let i = 0; i < 7; i++) {
+      this.spawnBeaver(-35 + (Math.random() - 0.5) * 20, 30 + (Math.random() - 0.5) * 20);
+    }
+
+    // Spawn Woodland Deer in the peaceful western meadow (x: -90, z: -20)
     for (let i = 0; i < 6; i++) {
-      this.spawnBeaver(-28 + (Math.random() - 0.5) * 18, 25 + (Math.random() - 0.5) * 18);
+      this.spawnDeer(-90 + (Math.random() - 0.5) * 35, -20 + (Math.random() - 0.5) * 35);
     }
 
-    // 3. Spawn Woodland Deer in the peaceful western meadow (x: -70, z: -20)
+    // Spawn Blupees in sacred woodland glade (x: -75, z: -15)
     for (let i = 0; i < 4; i++) {
-      this.spawnDeer(-70 + (Math.random() - 0.5) * 25, -20 + (Math.random() - 0.5) * 25);
+      this.spawnBlupee(-75 + (Math.random() - 0.5) * 25, -15 + (Math.random() - 0.5) * 25);
     }
 
-    // 4. Spawn Blupees in sacred woodland glade (x: -65, z: -15)
-    for (let i = 0; i < 3; i++) {
-      this.spawnBlupee(-65 + (Math.random() - 0.5) * 20, -15 + (Math.random() - 0.5) * 20);
-    }
-
-    // 5. Spawn Elemental Chuchus (Grass, Fire, Electric, Frost)
-    const chuchuTypes = ['grass', 'grass', 'fire', 'electric', 'grass', 'frost'];
+    // Spawn Elemental Chuchus (Grass, Fire, Electric, Frost)
+    const chuchuTypes = ['grass', 'fire', 'electric', 'frost', 'grass', 'fire'];
     const chuchuCoords = [
-      [25, -15], [35, -25], [10, 40], [-45, 15], [-50, -45], [0, -35]
+      [25, -15], [35, -25], [10, 40], [-45, 15], [-50, -45], [0, -35],
+      [-120, -100], [140, -80], [-80, 80]
     ];
     chuchuCoords.forEach((coord, idx) => {
       this.spawnChuchu(coord[0], coord[1], chuchuTypes[idx % chuchuTypes.length]);
     });
 
-    // 6. Spawn Bubbulfrogs near rock formations & cliff foothills
+    // Spawn Bubbulfrogs near rock formations & cliff foothills
     this.spawnBubbulfrog(48, 48);
     this.spawnBubbulfrog(-55, 55);
     this.spawnBubbulfrog(72, -18);
+    this.spawnBubbulfrog(-160, -120);
 
-    // 7. Spawn Cuccos around the Beaverfolk village
-    for (let i = 0; i < 5; i++) {
-      this.spawnCucco(-22 + (Math.random() - 0.5) * 16, 30 + (Math.random() - 0.5) * 16);
+    // Spawn Cuccos around the Beaverfolk village
+    for (let i = 0; i < 6; i++) {
+      this.spawnCucco(-26 + (Math.random() - 0.5) * 18, 32 + (Math.random() - 0.5) * 18);
     }
 
-    // 8. Spawn Aerocudas soaring above the canopy
-    for (let i = 0; i < 4; i++) {
-      this.spawnAerocuda((Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80, 14 + Math.random() * 6);
+    // Spawn Aerocudas soaring above the canopy
+    for (let i = 0; i < 6; i++) {
+      this.spawnAerocuda((Math.random() - 0.5) * 160, (Math.random() - 0.5) * 160, 16 + Math.random() * 8);
     }
 
-    // 9. Spawn Dondons grazing near mountain slopes
+    // Spawn Dondons grazing near mountain slopes
     this.spawnDondon(28, 62);
-    this.spawnDondon(-35, 68);
+    this.spawnDondon(-135, -95);
 
-    // 10. Spawn Woodland Grassland Foxes in the eastern hills
-    for (let i = 0; i < 4; i++) {
-      this.spawnFox(45 + (Math.random() - 0.5) * 25, 20 + (Math.random() - 0.5) * 25);
+    // Spawn Woodland Grassland Foxes in the eastern hills
+    for (let i = 0; i < 5; i++) {
+      this.spawnFox(45 + (Math.random() - 0.5) * 35, 20 + (Math.random() - 0.5) * 35);
     }
   }
 
   // ==========================================
   // 1. HIGH-DETAIL BOKOBLIN-STYLE WOODCUTTER GOBLIN
   // ==========================================
-  spawnGoblin(x, z, isCaptain = false) {
-    const y = this.terrain.getHeight(x, z);
+  spawnGoblin(x, z, isCaptain = false, campType = 'forest', forcedY = null) {
+    const y = (forcedY !== null) ? forcedY : this.terrain.getHeight(x, z);
     const goblin = new THREE.Group();
     goblin.position.set(x, y, z);
 
-    // Color palette
-    const skinHex = isCaptain ? 0x991b1b : 0xc2410c; // Captain is fierce crimson, scouts are burnt orange/red
-    const skinMat = new THREE.MeshStandardMaterial({ color: skinHex, roughness: 0.7 });
-    const vestMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
-    const ironMat = new THREE.MeshStandardMaterial({ color: 0x52525b, roughness: 0.35, metalness: 0.8 });
+    // Color palette based on camp type and captain rank
+    let skinHex = isCaptain ? 0x991b1b : 0xc2410c; // Default forest
+    if (campType === 'mountain') {
+      skinHex = isCaptain ? 0x1e293b : 0x475569; // Blue/black mountain bokoblin
+    } else if (campType === 'castle') {
+      skinHex = isCaptain ? 0x854d0e : 0xb45309; // Gold/bronze royal bokoblin
+    } else if (campType === 'depths') {
+      skinHex = 0x1f0612; // Malice gloom corrupted
+    }
+
+    const skinTex = (campType === 'depths')
+      ? TextureGenerator.createGloomMaliceTexture()
+      : TextureGenerator.createGoblinSkinTexture(skinHex);
+
+    const skinMat = new THREE.MeshStandardMaterial({ map: skinTex, roughness: 0.72 });
+    const vestTex = TextureGenerator.createBarkTexture(0x451a03);
+    const vestMat = new THREE.MeshStandardMaterial({ map: vestTex, roughness: 0.9 });
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x52525b, roughness: 0.35, metalness: 0.85 });
     const boneMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.5 });
-    const eyeGlowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const eyeGlowColor = (campType === 'depths') ? 0xef4444 : (isCaptain ? 0xf43f5e : 0xfacc15);
+    const eyeGlowMat = new THREE.MeshBasicMaterial({ color: eyeGlowColor });
 
     // 1. Torso & Leather Armor
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.24, 0.75, 8), vestMat);
@@ -110,7 +148,7 @@ export class CreatureVillagers {
     goblin.add(torso);
 
     // Spiked Shoulder Pad (Pauldrons)
-    const pauldron = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2, 0), ironMat);
+    const pauldron = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 0), ironMat);
     pauldron.position.set(-0.35, 1.15, 0);
     goblin.add(pauldron);
 
@@ -126,7 +164,7 @@ export class CreatureVillagers {
     snout.position.set(0, 1.28, 0.22);
     goblin.add(snout);
 
-    // White curved tusks
+    // Curved tusks
     [-0.07, 0.07].forEach(tx => {
       const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 4), boneMat);
       tusk.position.set(tx, 1.32, 0.28);
@@ -254,11 +292,14 @@ export class CreatureVillagers {
     const beaver = new THREE.Group();
     beaver.position.set(x, y, z);
 
-    const furMat = new THREE.MeshStandardMaterial({ color: 0x5c3822, roughness: 0.85 });
-    const bellyMat = new THREE.MeshStandardMaterial({ color: 0xa17855, roughness: 0.9 });
+    // Realistic Procedural Fur Materials
+    const beaverFurTex = TextureGenerator.createFurTexture(0x5c3822, 0xa17855);
+    const furMat = new THREE.MeshStandardMaterial({ map: beaverFurTex, roughness: 0.82 });
+    const bellyMat = new THREE.MeshStandardMaterial({ map: beaverFurTex, roughness: 0.88 });
     const toothMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
     const noseMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.3 });
-    const tailMat = new THREE.MeshStandardMaterial({ color: 0x382315, roughness: 0.9 });
+    const tailTex = TextureGenerator.createBarkTexture(0x382315);
+    const tailMat = new THREE.MeshStandardMaterial({ map: tailTex, roughness: 0.92 });
 
     // Plump Body with soft belly
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 10), furMat);
@@ -343,9 +384,11 @@ export class CreatureVillagers {
     const korok = new THREE.Group();
     korok.position.copy(position);
 
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.9 });
+    const woodTex = TextureGenerator.createBarkTexture(0x854d0e);
+    const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.9 });
     const leafHex = leafType === 'oak' ? 0x22c55e : (leafType === 'maple' ? 0xf97316 : 0xeab308);
-    const leafMat = new THREE.MeshStandardMaterial({ color: leafHex, roughness: 0.6, side: THREE.DoubleSide });
+    const leafTex = TextureGenerator.createLeafTexture(leafHex, 0xdcfce7);
+    const leafMat = new THREE.MeshStandardMaterial({ map: leafTex, roughness: 0.6, side: THREE.DoubleSide });
     const faceMat = new THREE.MeshBasicMaterial({ color: 0x1c1917 });
 
     // Chubby Twig Body
@@ -408,9 +451,11 @@ export class CreatureVillagers {
     const deer = new THREE.Group();
     deer.position.set(x, y, z);
 
-    const furMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.8 });
-    const bellyMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.85 });
-    const antlerMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
+    const deerFurTex = TextureGenerator.createFurTexture(0x9a3412, 0xfef08a);
+    const furMat = new THREE.MeshStandardMaterial({ map: deerFurTex, roughness: 0.8 });
+    const bellyMat = new THREE.MeshStandardMaterial({ map: deerFurTex, roughness: 0.85 });
+    const antlerTex = TextureGenerator.createBarkTexture(0x451a03);
+    const antlerMat = new THREE.MeshStandardMaterial({ map: antlerTex, roughness: 0.9 });
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0x09090b });
 
     // Slender Body

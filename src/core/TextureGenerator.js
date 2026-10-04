@@ -248,5 +248,462 @@ export class TextureGenerator {
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
   }
+
+  // Realistic cut tree log cross-section with concentric growth rings, radial heartwood fissures, and bark rim
+  static createWoodRingTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Base sapwood color
+    ctx.fillStyle = '#c8a265';
+    ctx.fillRect(0, 0, 256, 256);
+
+    const cx = 128;
+    const cy = 128;
+
+    // Dark heartwood center gradient
+    const heartGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 115);
+    heartGrad.addColorStop(0, '#78461b');
+    heartGrad.addColorStop(0.35, '#99632f');
+    heartGrad.addColorStop(0.85, '#cba56e');
+    heartGrad.addColorStop(1, '#664322');
+    ctx.fillStyle = heartGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 116, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Concentric growth rings
+    for (let r = 8; r < 114; r += 2.2 + Math.random() * 2.0) {
+      ctx.strokeStyle = Math.random() < 0.6 ? 'rgba(70, 38, 14, 0.45)' : 'rgba(165, 120, 65, 0.35)';
+      ctx.lineWidth = 0.8 + Math.random() * 1.2;
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.1) {
+        const wobble = Math.sin(a * 4 + r * 0.2) * 1.5 + Math.sin(a * 7) * 0.8;
+        const x = cx + Math.cos(a) * (r + wobble);
+        const y = cy + Math.sin(a) * (r + wobble);
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // Radial drying cracks / fissures from heartwood outward
+    for (let crack = 0; crack < 6; crack++) {
+      const angle = (crack / 6) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const crackLen = 40 + Math.random() * 65;
+      ctx.strokeStyle = 'rgba(25, 12, 4, 0.7)';
+      ctx.lineWidth = 1.2 + Math.random() * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      let px = cx;
+      let py = cy;
+      for (let dist = 10; dist < crackLen; dist += 10) {
+        px = cx + Math.cos(angle) * dist + (Math.random() - 0.5) * 4;
+        py = cy + Math.sin(angle) * dist + (Math.random() - 0.5) * 4;
+        ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // Outer bark collar rim
+    ctx.strokeStyle = '#3d2514';
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 121, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  }
+
+  // Realistic natural granite / cliff rock texture with mineral veins, lichen, and micro-crags
+  static createRockTexture(baseHex = 0x5a6069, hasLichen = true) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    const col = new THREE.Color(baseHex);
+    ctx.fillStyle = `rgb(${Math.floor(col.r * 255)}, ${Math.floor(col.g * 255)}, ${Math.floor(col.b * 255)})`;
+    ctx.fillRect(0, 0, 512, 512);
+
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+
+    for (let i = 0; i < d.length; i += 4) {
+      const noise = (Math.random() - 0.5) * 55;
+      const speckle = Math.random() < 0.08 ? (Math.random() < 0.5 ? -40 : 45) : 0;
+      d[i] = Math.max(0, Math.min(255, d[i] + noise + speckle));
+      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + noise * 0.95 + speckle));
+      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + noise * 0.9 + speckle));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Quartz / mineral veins
+    for (let v = 0; v < 5; v++) {
+      ctx.strokeStyle = Math.random() < 0.5 ? 'rgba(235, 235, 240, 0.45)' : 'rgba(40, 42, 45, 0.4)';
+      ctx.lineWidth = 1 + Math.random() * 2.5;
+      ctx.beginPath();
+      let vx = Math.random() * 512;
+      let vy = 0;
+      ctx.moveTo(vx, vy);
+      for (let y = 0; y < 512; y += 20) {
+        vx += (Math.random() - 0.5) * 22;
+        ctx.lineTo(vx, y);
+      }
+      ctx.stroke();
+    }
+
+    // Moss & Lichen colonies
+    if (hasLichen) {
+      for (let l = 0; l < 80; l++) {
+        const lx = Math.random() * 512;
+        const ly = Math.random() * 512;
+        const lr = 3 + Math.random() * 8;
+        const isGoldLichen = Math.random() < 0.35;
+        ctx.fillStyle = isGoldLichen ? 'rgba(202, 138, 4, 0.4)' : 'rgba(74, 124, 46, 0.45)';
+        ctx.beginPath();
+        ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+  }
+
+  // Multi-tone realistic foliage texture with branch veins, translucent sunlight highlights and organic leaf shapes
+  static createLeafTexture(baseHex = 0x2e8540, tipHex = 0x86efac) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const baseCol = new THREE.Color(baseHex);
+    const tipCol = new THREE.Color(tipHex);
+
+    // Deep forest underlayer
+    ctx.fillStyle = `rgb(${Math.floor(baseCol.r * 180)}, ${Math.floor(baseCol.g * 180)}, ${Math.floor(baseCol.b * 180)})`;
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Scatter realistic leaf clusters
+    for (let i = 0; i < 900; i++) {
+      const lx = Math.random() * 256;
+      const ly = Math.random() * 256;
+      const angle = Math.random() * Math.PI * 2;
+      const leafLen = 6 + Math.random() * 10;
+      const leafWidth = 3 + Math.random() * 4;
+
+      const t = Math.random();
+      const lr = Math.floor((baseCol.r * (1 - t) + tipCol.r * t) * 255);
+      const lg = Math.floor((baseCol.g * (1 - t) + tipCol.g * t) * 255);
+      const lb = Math.floor((baseCol.b * (1 - t) + tipCol.b * t) * 255);
+
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(angle);
+      ctx.fillStyle = `rgb(${lr}, ${lg}, ${lb})`;
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, leafLen, leafWidth, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Central leaf vein
+      ctx.strokeStyle = `rgba(30, 70, 20, 0.45)`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-leafLen, 0);
+      ctx.lineTo(leafLen, 0);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 3);
+    return texture;
+  }
+
+  // Realistic papery birch bark with dark horizontal lenticels and peeling parchment curls
+  static createBirchBarkTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Base pale cream/white
+    ctx.fillStyle = '#f1ece1';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Subtle paper grain
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 18;
+      d[i] = Math.max(0, Math.min(255, d[i] + n));
+      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n));
+      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Characteristic dark horizontal lenticels (birch slits)
+    for (let y = 10; y < 512; y += 12 + Math.random() * 20) {
+      const count = 3 + Math.floor(Math.random() * 4);
+      for (let c = 0; c < count; c++) {
+        const x = Math.random() * 450;
+        const width = 12 + Math.random() * 45;
+        const h = 2 + Math.random() * 4;
+
+        ctx.fillStyle = Math.random() < 0.75 ? '#241e17' : '#524334';
+        ctx.beginPath();
+        ctx.ellipse(x + width / 2, y, width / 2, h / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Peeling curl shadow
+        ctx.strokeStyle = 'rgba(180, 160, 130, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + width, y + h);
+        ctx.stroke();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 4);
+    return texture;
+  }
+
+  // Ancient Zonai carved stone texture with green-gold swirling spirals, Mesoamerican relief and gold leaf inlay
+  static createZonaiStoneTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Weathered dark teal-slate stone
+    ctx.fillStyle = '#1e2e2b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Stone texture grain
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 35;
+      d[i] = Math.max(0, Math.min(255, d[i] + n * 0.6));
+      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n));
+      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n * 0.8));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Zonai carved spiral glyphs
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.55)'; // Luminescent Zonai green
+    ctx.lineWidth = 3.5;
+
+    for (let gx = 64; gx < 512; gx += 128) {
+      for (let gy = 64; gy < 512; gy += 128) {
+        // Spiral
+        ctx.beginPath();
+        for (let a = 0; a < Math.PI * 4; a += 0.15) {
+          const r = a * 5.0;
+          const sx = gx + Math.cos(a) * r;
+          const sy = gy + Math.sin(a) * r;
+          if (a === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+
+        // Gold inlay dots
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(gx, gy, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Carved masonry stone brick joints
+    ctx.strokeStyle = 'rgba(10, 20, 18, 0.7)';
+    ctx.lineWidth = 3;
+    for (let by = 0; by < 512; by += 128) {
+      ctx.beginPath();
+      ctx.moveTo(0, by);
+      ctx.lineTo(512, by);
+      ctx.stroke();
+
+      const offset = (by % 256 === 0) ? 0 : 64;
+      for (let bx = offset; bx < 512; bx += 128) {
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx, by + 128);
+        ctx.stroke();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 3);
+    return texture;
+  }
+
+  // Weathered goblin hide skin texture with pores, muscle creases, and scars
+  static createGoblinSkinTexture(baseHex = 0xc2410c) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const col = new THREE.Color(baseHex);
+    ctx.fillStyle = `rgb(${Math.floor(col.r * 255)}, ${Math.floor(col.g * 255)}, ${Math.floor(col.b * 255)})`;
+    ctx.fillRect(0, 0, 256, 256);
+
+    const imgData = ctx.getImageData(0, 0, 256, 256);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 32;
+      d[i] = Math.max(0, Math.min(255, d[i] + n));
+      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n * 0.7));
+      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n * 0.5));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Leather creases & battle scratches
+    for (let s = 0; s < 6; s++) {
+      ctx.strokeStyle = 'rgba(70, 15, 5, 0.4)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      const sx = Math.random() * 200;
+      const sy = Math.random() * 200;
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 20 + Math.random() * 30, sy + (Math.random() - 0.5) * 15);
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  }
+
+  // Realistic animal fur texture with directional hair grain and highlight depth (for Beaverfolk, Deer, Foxes)
+  static createFurTexture(baseHex = 0x854d0e, highlightHex = 0xd97706) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const bCol = new THREE.Color(baseHex);
+    const hCol = new THREE.Color(highlightHex);
+
+    ctx.fillStyle = `rgb(${Math.floor(bCol.r * 220)}, ${Math.floor(bCol.g * 220)}, ${Math.floor(bCol.b * 220)})`;
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Directional hair strands
+    for (let i = 0; i < 1800; i++) {
+      const x = Math.random() * 256;
+      const y = Math.random() * 256;
+      const len = 4 + Math.random() * 7;
+      const isTip = Math.random() < 0.4;
+      const col = isTip ? hCol : bCol;
+
+      ctx.strokeStyle = `rgba(${Math.floor(col.r * 255)}, ${Math.floor(col.g * 255)}, ${Math.floor(col.b * 255)}, 0.6)`;
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (Math.random() - 0.5) * 2, y + len);
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+  }
+
+  // Depths gloom obsidian texture with pulsing crimson/magenta malice veins
+  static createGloomMaliceTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Pitch obsidian black
+    ctx.fillStyle = '#0d0208';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Malice pulsing veins
+    ctx.strokeStyle = '#be185d'; // Deep crimson magenta
+    ctx.lineWidth = 3.5;
+    for (let v = 0; v < 8; v++) {
+      ctx.beginPath();
+      let vx = Math.random() * 256;
+      let vy = Math.random() * 256;
+      ctx.moveTo(vx, vy);
+      for (let s = 0; s < 6; s++) {
+        vx += (Math.random() - 0.5) * 60;
+        vy += (Math.random() - 0.5) * 60;
+        ctx.lineTo(vx, vy);
+      }
+      ctx.stroke();
+    }
+
+    // Hot malice core threads
+    ctx.strokeStyle = '#f43f5e';
+    ctx.lineWidth = 1.5;
+    for (let v = 0; v < 6; v++) {
+      ctx.beginPath();
+      let vx = Math.random() * 256;
+      let vy = Math.random() * 256;
+      ctx.moveTo(vx, vy);
+      for (let s = 0; s < 5; s++) {
+        vx += (Math.random() - 0.5) * 50;
+        vy += (Math.random() - 0.5) * 50;
+        ctx.lineTo(vx, vy);
+      }
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+  }
+
+  // Realistic bird plumage feather texture
+  static createFeatherTexture(baseHex = 0xf8fafc, accentHex = 0xe2e8f0) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    const bCol = new THREE.Color(baseHex);
+    const aCol = new THREE.Color(accentHex);
+
+    ctx.fillStyle = `rgb(${Math.floor(bCol.r * 255)}, ${Math.floor(bCol.g * 255)}, ${Math.floor(bCol.b * 255)})`;
+    ctx.fillRect(0, 0, 128, 128);
+
+    // Overlapping feather barbs
+    for (let y = 0; y < 128; y += 12) {
+      for (let x = 0; x < 128; x += 16) {
+        ctx.fillStyle = `rgba(${Math.floor(aCol.r * 240)}, ${Math.floor(aCol.g * 240)}, ${Math.floor(aCol.b * 240)}, 0.5)`;
+        ctx.beginPath();
+        ctx.arc(x + 8, y + 8, 9, 0, Math.PI);
+        ctx.fill();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  }
 }
+
 

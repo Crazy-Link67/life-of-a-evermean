@@ -188,19 +188,31 @@ export class TreeModelGenerator {
     const heightMult = (config.heightScale || 1.0) * baseScale;
     const girthMult = (config.girthScale || 1.0) * baseScale;
 
-    // Materials
+    // Realistic Procedural PBR Materials
     const barkColorHex = new THREE.Color(config.barkColor || '#5c4033');
+    const isBirch = config.presetKey === 'birch' || config.barkColor === '#eae5d8';
+    const barkTex = isBirch
+      ? TextureGenerator.createBirchBarkTexture()
+      : TextureGenerator.createBarkTexture(barkColorHex.getHex(), config.barkRoughness !== undefined ? config.barkRoughness : 0.88);
+    const barkNormal = TextureGenerator.createBarkNormalMap();
+
     const barkMaterial = new THREE.MeshStandardMaterial({
-      color: barkColorHex,
+      map: barkTex,
+      normalMap: barkNormal,
+      normalScale: new THREE.Vector2(0.8, 0.8),
       roughness: config.barkRoughness !== undefined ? config.barkRoughness : 0.88,
       metalness: 0.08
     });
 
     const foliageColorHex = new THREE.Color(config.foliageColor || '#2e8540');
+    const tipColorHex = foliageColorHex.clone().offsetHSL(0.04, 0.2, 0.2);
+    const leafTex = TextureGenerator.createLeafTexture(foliageColorHex.getHex(), tipColorHex.getHex());
+
     const foliageMaterial = new THREE.MeshStandardMaterial({
-      color: foliageColorHex,
-      roughness: 0.7,
-      flatShading: true
+      map: leafTex,
+      roughness: 0.65,
+      metalness: 0.02,
+      flatShading: false
     });
 
     // Special glowing material for elemental veins or cosmic stardust
@@ -391,15 +403,31 @@ export class TreeModelGenerator {
     headGroup.position.y = trunkHeight * 0.5;
     trunkMesh.add(headGroup);
 
-    // Tree Stump Flat Top (TOTK characteristic wood-grain rings)
-    const stumpTopGeom = new THREE.CylinderGeometry(trunkRadiusTop, trunkRadiusTop * 1.05, 0.08 * heightMult, 10);
+    // Tree Stump Flat Top with authentic concentric wood-grain growth rings
+    const stumpTopGeom = new THREE.CylinderGeometry(trunkRadiusTop, trunkRadiusTop * 1.05, 0.08 * heightMult, 12);
+    const ringTex = TextureGenerator.createWoodRingTexture();
     const ringMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(config.barkColor || '#5c4033').clone().offsetHSL(0.05, -0.1, 0.15),
-      roughness: 0.95
+      map: ringTex,
+      roughness: 0.88,
+      metalness: 0.04
     });
     const stumpTop = new THREE.Mesh(stumpTopGeom, ringMaterial);
     stumpTop.position.y = 0.04 * heightMult;
     headGroup.add(stumpTop);
+
+    // Lateral Branching Boughs (Organic tree skeleton)
+    for (let b = 0; b < 4; b++) {
+      const bAngle = (b / 4) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const bLen = (0.7 + Math.random() * 0.4) * girthMult;
+      const bGeom = new THREE.CylinderGeometry(0.06 * girthMult, 0.12 * girthMult, bLen, 6);
+      bGeom.rotateZ(Math.PI / 3.2);
+      bGeom.translate(bLen * 0.4, 0.1 * heightMult, 0);
+
+      const bBranch = new THREE.Mesh(bGeom, barkMaterial);
+      bBranch.rotation.y = bAngle;
+      bBranch.castShadow = true;
+      headGroup.add(bBranch);
+    }
 
     // Foliage Clusters
     const foliageGroup = new THREE.Group();
@@ -427,23 +455,23 @@ export class TreeModelGenerator {
         foliageGroup.add(blob);
       }
     } else {
-      // Natural / Elemental Foliage Puffs
-      const puffCount = config.foliageType === 'spiky' ? 10 : 6;
+      // Natural / Elemental Foliage Puffs with rich organic volume
+      const puffCount = config.foliageType === 'spiky' ? 12 : 8;
       for (let p = 0; p < puffCount; p++) {
         let fGeom;
         if (config.foliageType === 'icicle_needles' || config.foliageType === 'spiky') {
-          fGeom = new THREE.ConeGeometry((0.25 + Math.random() * 0.2) * girthMult, 0.7 * heightMult, 5);
+          fGeom = new THREE.ConeGeometry((0.28 + Math.random() * 0.22) * girthMult, 0.85 * heightMult, 6);
           fGeom.rotateX(Math.random() * 0.4);
         } else {
-          fGeom = new THREE.DodecahedronGeometry((0.4 + Math.random() * 0.25) * girthMult, 1);
+          fGeom = new THREE.DodecahedronGeometry((0.48 + Math.random() * 0.3) * girthMult, 1);
         }
 
         const puff = new THREE.Mesh(fGeom, foliageMaterial);
         puff.castShadow = true;
         puff.position.set(
-          (Math.random() - 0.5) * 1.1 * girthMult,
-          (0.2 + Math.random() * 0.5) * heightMult,
-          (Math.random() - 0.5) * 1.1 * girthMult
+          (Math.random() - 0.5) * 1.35 * girthMult,
+          (0.25 + Math.random() * 0.65) * heightMult,
+          (Math.random() - 0.5) * 1.35 * girthMult
         );
         foliageGroup.add(puff);
       }

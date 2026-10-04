@@ -225,10 +225,13 @@ class Game {
       player.toggleRecall(environment);
     });
 
-    // E: Ultrahand Magnetic Grip / Release & Shrine/Goddess Interaction
+    // E: Ultrahand Magnetic Grip / Release & Shrine/Goddess/Lightroot/Chest Interaction
     input.onAction('KeyE', () => {
       if (!this.isGameRunning || this.isPaused || buildMenu.isOpen) return;
       if (this.shrineSystem && this.shrineSystem.interact(player)) {
+        return;
+      }
+      if (player.interactWorld && player.interactWorld(environment)) {
         return;
       }
       player.toggleUltrahand(environment);

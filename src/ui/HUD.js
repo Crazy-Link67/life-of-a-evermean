@@ -515,6 +515,103 @@ export class HUD {
             <button id="btn-totk-continue" style="background: rgba(30, 41, 59, 0.85); border: 1.5px solid #94a3b8; color: #e2e8f0; font-size: 13px; font-weight: 700; padding: 12px 24px; border-radius: 24px; cursor: pointer;">🌲 Continue Exploring Hyrule</button>
           </div>
         </div>
+      <!-- Tears of the Kingdom Inventory & Equipment Modal -->
+      <div id="totk-inventory-modal" style="position: absolute; inset: 0; background: rgba(2, 6, 23, 0.92); backdrop-filter: blur(14px); display: none; flex-direction: column; z-index: 2500; font-family: 'Cinzel', Georgia, serif; color: #f8fafc; padding: 24px 36px; box-sizing: border-box; pointer-events: auto;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 14px; margin-bottom: 20px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span style="font-size: 28px; color: #facc15;">🗡️</span>
+            <div>
+              <div style="font-size: 22px; font-weight: 900; letter-spacing: 4px; color: #facc15; text-shadow: 0 0 20px rgba(250, 204, 21, 0.4);">HERO OF HYRULE INVENTORY</div>
+              <div style="font-size: 12px; color: #94a3b8; letter-spacing: 2px;">Tears of the Kingdom Equipment & Pouch</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px; align-items: center;">
+            <div id="totk-inv-defense-badge" style="background: rgba(30, 41, 59, 0.8); border: 1.5px solid #38bdf8; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 800; color: #38bdf8;">🛡️ TOTAL DEFENSE: 122</div>
+            <button id="btn-close-totk-inv" style="background: rgba(239, 68, 68, 0.2); border: 1.5px solid #ef4444; color: #fca5a5; font-size: 16px; font-weight: 900; width: 36px; height: 36px; border-radius: 50%; cursor: pointer;">✕</button>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+          <button class="totk-tab-btn active" data-tab="weapons" style="background: #1e293b; border: 1.5px solid #facc15; color: #facc15; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; letter-spacing: 1.5px;">⚔️ WEAPONS</button>
+          <button class="totk-tab-btn" data-tab="shields" style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid #475569; color: #94a3b8; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; letter-spacing: 1.5px;">🛡️ SHIELDS</button>
+          <button class="totk-tab-btn" data-tab="armor" style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid #475569; color: #94a3b8; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; letter-spacing: 1.5px;">🥋 ARMOR</button>
+          <button class="totk-tab-btn" data-tab="materials" style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid #475569; color: #94a3b8; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; letter-spacing: 1.5px;">🍎 MATERIALS</button>
+          <button class="totk-tab-btn" data-tab="meals" style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid #475569; color: #94a3b8; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; letter-spacing: 1.5px;">🍲 MEALS</button>
+        </div>
+
+        <!-- Main Content Area: Left Grid + Right Inspect Card -->
+        <div style="display: flex; gap: 24px; flex: 1; overflow: hidden;">
+          <!-- Item Grid -->
+          <div id="totk-inv-grid" style="flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px; overflow-y: auto; padding-right: 12px;"></div>
+
+          <!-- Inspect & Current Loadout Card -->
+          <div style="flex: 1; background: rgba(15, 23, 42, 0.85); border: 1.5px solid #334155; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div id="totk-inv-item-detail">
+              <div style="font-size: 38px; text-align: center; margin-bottom: 10px;">🗡️</div>
+              <div style="font-size: 18px; font-weight: 900; color: #38bdf8; text-align: center; margin-bottom: 8px;">Master Sword</div>
+              <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6; text-align: center;">The legendary blade that seals the darkness. Slashes with divine energy beams when at full vitality.</div>
+            </div>
+            <div style="border-top: 1px solid #334155; padding-top: 14px; margin-top: 14px;">
+              <div style="font-size: 11px; letter-spacing: 2px; color: #94a3b8; margin-bottom: 8px;">CURRENT LOADOUT</div>
+              <div id="totk-inv-loadout-preview" style="font-size: 12px; line-height: 1.8; color: #e2e8f0;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tears of the Kingdom Campfire Cooking Pot Modal -->
+      <div id="cooking-modal" style="position: absolute; inset: 0; background: rgba(2, 6, 23, 0.88); backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center; z-index: 2600; font-family: 'Cinzel', Georgia, serif; color: #f8fafc; pointer-events: auto;">
+        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #f97316; border-radius: 20px; width: 620px; padding: 28px; box-shadow: 0 0 60px rgba(249, 115, 22, 0.35);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1.5px solid #334155; padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 28px;">🍳</span>
+              <div>
+                <div style="font-size: 20px; font-weight: 900; color: #f97316; letter-spacing: 2px;">CAMPFIRE COOKING POT</div>
+                <div style="font-size: 12px; color: #94a3b8;">Combine forest ingredients into hearty restorative meals</div>
+              </div>
+            </div>
+            <button id="btn-close-cooking" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-size: 14px; border-radius: 50%; width: 32px; height: 32px; cursor: pointer;">✕</button>
+          </div>
+
+          <!-- Pot slots -->
+          <div style="margin-bottom: 20px;">
+            <div style="font-size: 12px; letter-spacing: 1px; color: #cbd5e1; margin-bottom: 8px;">INGREDIENTS IN POT (Click materials below to add):</div>
+            <div id="cooking-pot-slots" style="display: flex; gap: 12px; min-height: 50px; background: rgba(30, 41, 59, 0.6); border: 1.5px dashed #f97316; border-radius: 12px; padding: 10px; align-items: center;">
+              <span style="color: #64748b; font-size: 12px;">Empty pot — select materials below...</span>
+            </div>
+          </div>
+
+          <!-- Available Materials -->
+          <div style="margin-bottom: 24px;">
+            <div style="font-size: 12px; letter-spacing: 1px; color: #cbd5e1; margin-bottom: 8px;">AVAILABLE POUCH MATERIALS:</div>
+            <div id="cooking-available-materials" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+          </div>
+
+          <!-- Action -->
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button id="btn-clear-pot" style="background: rgba(30, 41, 59, 0.8); border: 1px solid #64748b; color: #cbd5e1; padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: 12px;">Clear Pot</button>
+            <button id="btn-start-cook" style="background: linear-gradient(135deg, #ea580c, #f97316); border: 1.5px solid #fdba74; color: #fff; padding: 10px 28px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 13px; box-shadow: 0 4px 18px rgba(234, 88, 12, 0.4);">🔥 Sizzle & Cook</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tears of the Kingdom Great Fairy Tera Blessing Modal -->
+      <div id="great-fairy-modal" style="position: absolute; inset: 0; background: rgba(2, 6, 23, 0.9); backdrop-filter: blur(14px); display: none; align-items: center; justify-content: center; z-index: 2600; font-family: 'Cinzel', Georgia, serif; color: #f8fafc; pointer-events: auto;">
+        <div style="background: radial-gradient(circle at center, rgba(30, 27, 75, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%); border: 2px solid #ec4899; border-radius: 24px; width: 600px; padding: 32px; box-shadow: 0 0 70px rgba(236, 72, 153, 0.35); text-align: center;">
+          <div style="font-size: 44px; margin-bottom: 10px;">🧚</div>
+          <div style="font-size: 12px; letter-spacing: 6px; color: #f472b6; font-weight: 700; margin-bottom: 6px;">FOUNTAIN OF BLESSINGS</div>
+          <div style="font-size: 26px; font-weight: 900; color: #fbcfe8; margin-bottom: 14px; text-shadow: 0 0 20px rgba(244, 114, 182, 0.5);">GREAT FAIRY TERA</div>
+          <div style="font-size: 14px; color: #cbd5e1; line-height: 1.7; margin-bottom: 24px;">
+            "Ah, courageous traveler of Hyrule! I sense the legendary spirit within thee. Choose my sacred blessing to reinforce thy strength against the darkness:"
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+            <button id="btn-fairy-hearts" style="background: linear-gradient(135deg, #be123c, #e11d48); border: 1.5px solid #fda4af; color: #fff; padding: 14px 20px; border-radius: 14px; cursor: pointer; font-size: 14px; font-weight: 800; box-shadow: 0 4px 18px rgba(225, 29, 72, 0.4);">❤️ Bless with Heart Container (+2 Max Hearts & Full Heal)</button>
+            <button id="btn-fairy-stamina" style="background: linear-gradient(135deg, #059669, #10b981); border: 1.5px solid #6ee7b7; color: #fff; padding: 14px 20px; border-radius: 14px; cursor: pointer; font-size: 14px; font-weight: 800; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);">⚡ Bless with Stamina Vessel (+25 Max Stamina Wheel)</button>
+          </div>
+          <button id="btn-close-fairy" style="background: rgba(30, 41, 59, 0.8); border: 1px solid #64748b; color: #94a3b8; padding: 10px 24px; border-radius: 20px; cursor: pointer; font-size: 12px;">Depart with Gratitude</button>
+        </div>
       </div>
 
       <!-- Badges -->
@@ -742,9 +839,15 @@ export class HUD {
   showTotkTitleCard() {
     const title = document.getElementById('totk-title-overlay');
     if (title) {
-      title.style.opacity = '1';
+      title.style.display = 'flex';
+      setTimeout(() => {
+        title.style.opacity = '1';
+      }, 20);
       setTimeout(() => {
         title.style.opacity = '0';
+        setTimeout(() => {
+          title.style.display = 'none';
+        }, 1600);
       }, 5500);
     }
   }
@@ -766,6 +869,252 @@ export class HUD {
       setTimeout(() => {
         ending.style.display = 'none';
       }, 1000);
+    }
+  }
+
+  // Toggle Tears of the Kingdom Inventory & Equipment Modal
+  toggleTotkInventory(player) {
+    const modal = document.getElementById('totk-inventory-modal');
+    if (!modal) return;
+
+    if (modal.style.display === 'flex') {
+      modal.style.display = 'none';
+      if (document.pointerLockElement === null && window.game?.input) {
+        window.game.input.requestPointerLock();
+      }
+    } else {
+      document.exitPointerLock?.();
+      modal.style.display = 'flex';
+      this.renderTotkInventory(player, 'weapons');
+    }
+  }
+
+  // Render Tears of the Kingdom Inventory Pouch & Equipment Tabs
+  renderTotkInventory(player, activeTab = 'weapons') {
+    const grid = document.getElementById('totk-inv-grid');
+    const detail = document.getElementById('totk-inv-item-detail');
+    const loadoutPreview = document.getElementById('totk-inv-loadout-preview');
+    const defBadge = document.getElementById('totk-inv-defense-badge');
+    if (!grid || !player.totkInventory) return;
+
+    const inv = player.totkInventory;
+
+    // Calculate total defense
+    const totalDef = (player.equippedShield?.def || 0) + (player.equippedArmor?.def || 0);
+    if (defBadge) defBadge.textContent = `🛡️ TOTAL DEFENSE: ${totalDef}`;
+
+    // Update Loadout Preview
+    if (loadoutPreview) {
+      loadoutPreview.innerHTML = `
+        <div>⚔️ <strong>Weapon:</strong> ${player.equippedWeapon?.name || 'None'} (${player.equippedWeapon?.atk || 0} ATK)</div>
+        <div>🛡️ <strong>Shield:</strong> ${player.equippedShield?.name || 'None'} (${player.equippedShield?.def || 0} DEF)</div>
+        <div>🥋 <strong>Armor:</strong> ${player.equippedArmor?.name || 'None'} (${player.equippedArmor?.def || 0} DEF)</div>
+      `;
+    }
+
+    // Set tab active state
+    document.querySelectorAll('.totk-tab-btn').forEach(btn => {
+      const isTab = btn.dataset.tab === activeTab;
+      btn.style.background = isTab ? '#1e293b' : 'rgba(15, 23, 42, 0.8)';
+      btn.style.borderColor = isTab ? '#facc15' : '#475569';
+      btn.style.color = isTab ? '#facc15' : '#94a3b8';
+    });
+
+    // Populate items
+    grid.innerHTML = '';
+    const items = inv[activeTab] || [];
+
+    if (items.length === 0) {
+      grid.innerHTML = '<div style="color: #64748b; font-size: 13px; grid-column: 1 / -1; padding: 20px;">No items in this pouch compartment.</div>';
+      return;
+    }
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      const isEquipped = (activeTab === 'weapons' && player.equippedWeapon?.id === item.id) ||
+                         (activeTab === 'shields' && player.equippedShield?.id === item.id) ||
+                         (activeTab === 'armor' && player.equippedArmor?.id === item.id);
+
+      card.style.cssText = `
+        background: ${isEquipped ? 'rgba(30, 58, 138, 0.6)' : 'rgba(15, 23, 42, 0.75)'};
+        border: 1.5px solid ${isEquipped ? '#38bdf8' : '#334155'};
+        border-radius: 12px;
+        padding: 12px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: transform 0.12s ease, border-color 0.12s ease;
+      `;
+
+      let statLabel = '';
+      if (item.atk) statLabel = `⚔️ ${item.atk}`;
+      else if (item.def) statLabel = `🛡️ ${item.def}`;
+      else if (item.qty) statLabel = `x${item.qty}`;
+      else if (item.hearts) statLabel = `❤️ +${item.hearts}`;
+
+      card.innerHTML = `
+        <div style="font-size: 32px; margin-bottom: 6px;">${item.icon || '📦'}</div>
+        <div style="font-size: 11px; font-weight: 800; text-align: center; color: #f8fafc; line-height: 1.3; margin-bottom: 4px;">${item.name}</div>
+        <div style="font-size: 11px; font-weight: 700; color: #facc15;">${statLabel}</div>
+        ${isEquipped ? '<div style="font-size: 9px; font-weight: 900; color: #38bdf8; background: rgba(56, 189, 248, 0.2); padding: 2px 6px; border-radius: 4px; margin-top: 4px;">EQUIPPED</div>' : ''}
+      `;
+
+      card.addEventListener('mouseenter', () => {
+        card.style.transform = 'translateY(-2px)';
+        card.style.borderColor = '#facc15';
+        if (detail) {
+          detail.innerHTML = `
+            <div style="font-size: 38px; text-align: center; margin-bottom: 10px;">${item.icon || '📦'}</div>
+            <div style="font-size: 18px; font-weight: 900; color: #facc15; text-align: center; margin-bottom: 8px;">${item.name}</div>
+            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6; text-align: center;">${item.desc || ''}</div>
+          `;
+        }
+      });
+
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = 'translateY(0)';
+        card.style.borderColor = isEquipped ? '#38bdf8' : '#334155';
+      });
+
+      card.addEventListener('click', () => {
+        if (activeTab === 'weapons' || activeTab === 'shields' || activeTab === 'armor') {
+          player.equipItem(activeTab, item);
+          this.renderTotkInventory(player, activeTab);
+        } else if (activeTab === 'meals') {
+          player.eatMeal(item.id);
+          this.renderTotkInventory(player, activeTab);
+        }
+      });
+
+      grid.appendChild(card);
+    });
+
+    // Close button
+    const closeBtn = document.getElementById('btn-close-totk-inv');
+    if (closeBtn) {
+      closeBtn.onclick = () => this.toggleTotkInventory(player);
+    }
+
+    // Tab buttons
+    document.querySelectorAll('.totk-tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        this.renderTotkInventory(player, btn.dataset.tab);
+      };
+    });
+  }
+
+  // Show Campfire Cooking Pot Modal
+  showCookingModal(player) {
+    const modal = document.getElementById('cooking-modal');
+    if (!modal) return;
+    document.exitPointerLock?.();
+    modal.style.display = 'flex';
+
+    const potSlots = document.getElementById('cooking-pot-slots');
+    const availList = document.getElementById('cooking-available-materials');
+    const btnCook = document.getElementById('btn-start-cook');
+    const btnClear = document.getElementById('btn-clear-pot');
+    const btnClose = document.getElementById('btn-close-cooking');
+
+    const selectedIngredients = [];
+
+    const updatePotUI = () => {
+      if (potSlots) {
+        if (selectedIngredients.length === 0) {
+          potSlots.innerHTML = '<span style="color: #64748b; font-size: 12px;">Empty pot — select materials below...</span>';
+        } else {
+          potSlots.innerHTML = '';
+          selectedIngredients.forEach((id) => {
+            const mat = player.totkInventory.materials.find(m => m.id === id);
+            const slot = document.createElement('div');
+            slot.style.cssText = 'background: rgba(15, 23, 42, 0.8); border: 1px solid #f97316; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 800; color: #ffedd5; display: flex; align-items: center; gap: 6px;';
+            slot.innerHTML = `${mat?.icon || '🍎'} ${mat?.name || id}`;
+            potSlots.appendChild(slot);
+          });
+        }
+      }
+
+      if (availList) {
+        availList.innerHTML = '';
+        player.totkInventory.materials.forEach(mat => {
+          if (mat.qty > 0) {
+            const btn = document.createElement('button');
+            btn.style.cssText = 'background: rgba(30, 41, 59, 0.8); border: 1px solid #475569; color: #f8fafc; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            btn.innerHTML = `${mat.icon} ${mat.name} <span style="color: #facc15; font-weight: 800;">x${mat.qty}</span>`;
+            btn.onclick = () => {
+              if (selectedIngredients.length < 4) {
+                selectedIngredients.push(mat.id);
+                updatePotUI();
+              }
+            };
+            availList.appendChild(btn);
+          }
+        });
+      }
+    };
+
+    updatePotUI();
+
+    if (btnClear) {
+      btnClear.onclick = () => {
+        selectedIngredients.length = 0;
+        updatePotUI();
+      };
+    }
+
+    if (btnCook) {
+      btnCook.onclick = () => {
+        if (selectedIngredients.length > 0) {
+          player.cookIngredients([...selectedIngredients]);
+          selectedIngredients.length = 0;
+          modal.style.display = 'none';
+          if (window.game?.input) window.game.input.requestPointerLock();
+        }
+      };
+    }
+
+    if (btnClose) {
+      btnClose.onclick = () => {
+        modal.style.display = 'none';
+        if (window.game?.input) window.game.input.requestPointerLock();
+      };
+    }
+  }
+
+  // Show Great Fairy Tera Blessing Modal
+  showGreatFairyModal(player) {
+    const modal = document.getElementById('great-fairy-modal');
+    if (!modal) return;
+    document.exitPointerLock?.();
+    modal.style.display = 'flex';
+
+    const btnHearts = document.getElementById('btn-fairy-hearts');
+    const btnStamina = document.getElementById('btn-fairy-stamina');
+    const btnClose = document.getElementById('btn-close-fairy');
+
+    if (btnHearts) {
+      btnHearts.onclick = () => {
+        player.receiveFairyBlessing('hearts');
+        modal.style.display = 'none';
+        if (window.game?.input) window.game.input.requestPointerLock();
+      };
+    }
+
+    if (btnStamina) {
+      btnStamina.onclick = () => {
+        player.receiveFairyBlessing('stamina');
+        modal.style.display = 'none';
+        if (window.game?.input) window.game.input.requestPointerLock();
+      };
+    }
+
+    if (btnClose) {
+      btnClose.onclick = () => {
+        modal.style.display = 'none';
+        if (window.game?.input) window.game.input.requestPointerLock();
+      };
     }
   }
 

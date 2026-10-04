@@ -23,6 +23,10 @@ export class Environment {
     this.lightroot = null;
     this.depthsLaunchPad = null;
     this.underwaterChests = [];
+    this.greatFairyFountain = null;
+    this.templeOfTime = null;
+    this.bargainerStatue = null;
+    this.fairyOrbs = [];
 
     // 5 Unique Battling Camps across the enlarged 640m map
     this.goblinCampCenter = new THREE.Vector3(75, 0, -50);          // Camp 1: Woodcutter Goblin Outpost
@@ -93,6 +97,11 @@ export class Environment {
 
     // 16. Deep Underwater Features & Sunken Treasure Chests
     this.spawnUnderwaterFeatures();
+
+    // 17. Tears of the Kingdom Landmarks: Great Fairy Fountain, Temple of Time & Bargainer Statue
+    this.spawnGreatFairyFountain();
+    this.spawnTempleOfTime();
+    this.spawnBargainerStatue();
   }
 
   // Ordinary forest trees with rich procedural textures, branching boughs, and solid collision
@@ -1528,6 +1537,18 @@ export class Environment {
         }
       });
     }
+
+    // Great Fairy Fountain floating fairy orbs
+    if (this.fairyOrbs) {
+      this.fairyOrbs.forEach((orb, oIdx) => {
+        orb.position.y += delta * 0.45;
+        orb.position.x += Math.sin(time * 2.5 + oIdx) * 0.02;
+        orb.position.z += Math.cos(time * 2.5 + oIdx) * 0.02;
+        if (orb.position.y > (orb.userData.startY || 1.0) + 3.8) {
+          orb.position.y = (orb.userData.startY || 1.0);
+        }
+      });
+    }
   }
 
   // 14. Floating Zelda TOTK Sylvan Sky Islands with Cascading Waterfalls
@@ -1963,6 +1984,237 @@ export class Environment {
     }
 
     this.scene.add(waterGroup);
+  }
+
+  // 17. Great Fairy Fountain with Iridescent Floral Bud & Magic Pool
+  spawnGreatFairyFountain() {
+    const fx = -80;
+    const fz = -60;
+    const fy = this.terrain.getHeight(fx, fz);
+
+    const fountainGroup = new THREE.Group();
+    fountainGroup.position.set(fx, fy, fz);
+
+    const stoneMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.85
+    });
+
+    // 1. Ornate Circular Basin
+    const basin = new THREE.Mesh(new THREE.TorusGeometry(5.2, 0.55, 8, 32), stoneMat);
+    basin.rotation.x = Math.PI / 2;
+    basin.position.y = 0.35;
+    basin.receiveShadow = true;
+    fountainGroup.add(basin);
+
+    // 2. Crystal Magic Pool Water
+    const pool = new THREE.Mesh(
+      new THREE.CircleGeometry(5.0, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x06b6d4,
+        emissiveIntensity: 0.7,
+        transparent: true,
+        opacity: 0.88,
+        roughness: 0.1
+      })
+    );
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.y = 0.4;
+    fountainGroup.add(pool);
+
+    // 3. Great Fairy Giant Floral Bud with Iridescent Petals
+    const budGroup = new THREE.Group();
+    budGroup.position.set(0, 0.4, 0);
+
+    const petalTex = TextureGenerator.createGreatFairyPetalTexture();
+    const petalMat = new THREE.MeshStandardMaterial({
+      map: petalTex,
+      side: THREE.DoubleSide,
+      roughness: 0.5,
+      metalness: 0.15
+    });
+
+    // 8 Arching Floral Petals forming the magical bulb
+    for (let p = 0; p < 8; p++) {
+      const angle = (p / 8) * Math.PI * 2;
+      const petalMesh = new THREE.Mesh(new THREE.ConeGeometry(0.9, 3.4, 5), petalMat);
+      petalMesh.position.set(Math.cos(angle) * 1.4, 1.2, Math.sin(angle) * 1.4);
+      petalMesh.rotation.y = angle;
+      petalMesh.rotation.z = 0.35;
+      petalMesh.castShadow = true;
+      budGroup.add(petalMesh);
+    }
+
+    // Inner Glowing Rose Flower Heart
+    const innerHeart = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(1.2, 1),
+      new THREE.MeshStandardMaterial({
+        color: 0xf472b6,
+        emissive: 0xec4899,
+        emissiveIntensity: 1.4
+      })
+    );
+    innerHeart.position.y = 1.4;
+    budGroup.add(innerHeart);
+
+    fountainGroup.add(budGroup);
+
+    // Ethereal Fairy Light
+    const fairyLight = new THREE.PointLight(0xf472b6, 3.5, 25);
+    fairyLight.position.set(0, 3.0, 0);
+    fountainGroup.add(fairyLight);
+
+    // Floating Fairy Orb Sprites
+    const orbMat = new THREE.MeshBasicMaterial({ color: 0xfbcfe8 });
+    for (let o = 0; o < 8; o++) {
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), orbMat);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 1.5 + Math.random() * 3.2;
+      const oy = 0.6 + Math.random() * 2.5;
+      orb.position.set(Math.cos(angle) * dist, oy, Math.sin(angle) * dist);
+      orb.userData = { startY: 0.6 + Math.random() * 0.8 };
+      fountainGroup.add(orb);
+      this.fairyOrbs.push(orb);
+    }
+
+    fountainGroup.userData = {
+      isGreatFairy: true,
+      name: 'Great Fairy Tera Fountain',
+      budGroup,
+      position: new THREE.Vector3(fx, fy, fz)
+    };
+
+    this.scene.add(fountainGroup);
+    this.greatFairyFountain = fountainGroup;
+
+    // Solid collision around fountain perimeter
+    collision.addCylinder(fx, fz, 5.4, fy - 1, fy + 4.5, 'GreatFairyFountain');
+  }
+
+  // 18. Temple of Time on the Great Sky Island
+  spawnTempleOfTime() {
+    const tx = 10;
+    const tz = 95;
+    const ty = 84.5;
+
+    const templeGroup = new THREE.Group();
+    templeGroup.position.set(tx, ty, tz);
+
+    const stoneTex = TextureGenerator.createRuinPillarTexture();
+    const templeMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.85 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
+
+    // Raised Stone Platform
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(16, 1.2, 24), templeMat);
+    dais.position.y = 0.6;
+    dais.receiveShadow = true;
+    templeGroup.add(dais);
+
+    // 8 Majestic Zonai Fluted Columns
+    const colCoords = [
+      [-6, 0.6, -9], [6, 0.6, -9],
+      [-6, 0.6, -3], [6, 0.6, -3],
+      [-6, 0.6, 3],  [6, 0.6, 3],
+      [-6, 0.6, 9],  [6, 0.6, 9]
+    ];
+
+    colCoords.forEach(([cx, cy, cz], idx) => {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 9.0, 10), templeMat);
+      col.position.set(cx, cy + 4.5, cz);
+      col.castShadow = true;
+      templeGroup.add(col);
+
+      collision.addCylinder(tx + cx, tz + cz, 0.85, ty, ty + 9.5, 'TempleCol_' + idx);
+    });
+
+    // Grand Entrance Pediment Arch (Zonai Architecture)
+    const pediment = new THREE.Mesh(new THREE.ConeGeometry(9.5, 4.0, 4), templeMat);
+    pediment.rotation.y = Math.PI / 4;
+    pediment.position.set(0, 11.5, -9);
+    templeGroup.add(pediment);
+
+    // Golden Triforce Crest on Pediment
+    const crest = new THREE.Mesh(new THREE.OctahedronGeometry(0.85), goldMat);
+    crest.position.set(0, 11.2, -8.2);
+    templeGroup.add(crest);
+
+    // Sacred Temple Altar & Golden Bell
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.4, 2.2), templeMat);
+    altar.position.set(0, 1.9, 7.5);
+    templeGroup.add(altar);
+
+    const runeMat = new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 1.2 });
+    const altarGlyph = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.85, 8), runeMat);
+    altarGlyph.rotation.x = -Math.PI / 2;
+    altarGlyph.position.set(0, 2.62, 7.5);
+    templeGroup.add(altarGlyph);
+
+    // Golden Bell suspended aloft
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.9, 1.6, 10), goldMat);
+    bell.position.set(0, 8.5, 0);
+    templeGroup.add(bell);
+
+    const templeLight = new THREE.PointLight(0x38bdf8, 2.5, 24);
+    templeLight.position.set(0, 5.0, 7.5);
+    templeGroup.add(templeLight);
+
+    templeGroup.userData = {
+      isTempleOfTime: true,
+      name: 'Temple of Time',
+      position: new THREE.Vector3(tx, ty, tz)
+    };
+
+    this.scene.add(templeGroup);
+    this.templeOfTime = templeGroup;
+  }
+
+  // 19. Bargainer Statue in The Depths
+  spawnBargainerStatue() {
+    const cx = this.depthsCampCenter.x - 65;
+    const cz = this.depthsCampCenter.z + 45;
+    const cy = -90;
+
+    const statueGroup = new THREE.Group();
+    statueGroup.position.set(cx, cy, cz);
+
+    const obsidMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.95 });
+    const poeEyeMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+    // Colossal 4-faced monolith base
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 5.5, 14.0, 8), obsidMat);
+    base.position.y = 7.0;
+    base.castShadow = true;
+    statueGroup.add(base);
+
+    // 4 Glowing Poe Eyes on each cardinal face
+    [0, Math.PI / 2, Math.PI, Math.PI * 1.5].forEach(ang => {
+      [-0.6, 0.6].forEach(ex => {
+        const eye = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.2), poeEyeMat);
+        eye.position.set(
+          Math.cos(ang) * 4.2 + Math.sin(ang) * ex,
+          10.5,
+          Math.sin(ang) * 4.2 - Math.cos(ang) * ex
+        );
+        statueGroup.add(eye);
+      });
+    });
+
+    // Dark crimson eerie aura light
+    const statueLight = new THREE.PointLight(0xdc2626, 4.0, 28);
+    statueLight.position.set(0, 11.0, 0);
+    statueGroup.add(statueLight);
+
+    statueGroup.userData = {
+      isBargainerStatue: true,
+      name: 'Bargainer Statue',
+      position: new THREE.Vector3(cx, cy, cz)
+    };
+
+    this.scene.add(statueGroup);
+    this.bargainerStatue = statueGroup;
+
+    collision.addCylinder(cx, cz, 5.2, cy, cy + 15, 'BargainerStatue');
   }
 }
 

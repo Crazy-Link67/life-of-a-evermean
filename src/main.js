@@ -202,9 +202,14 @@ class Game {
       }
     });
 
-    // C: Camouflage Disguise
+    // C: Cook (when near campfire) or Camouflage Disguise
     input.onAction('KeyC', () => {
       if (!this.isGameRunning || this.isPaused) return;
+      const distToCampfire = Math.hypot(player.position.x - 0, player.position.z - 12);
+      if (distToCampfire < 5.0) {
+        hud.showCookingModal(player);
+        return;
+      }
       player.toggleCamouflage();
     });
 
@@ -226,9 +231,13 @@ class Game {
       player.toggleRecall(environment);
     });
 
-    // E: Ultrahand Magnetic Grip / Release & Shrine/Goddess/Lightroot/Chest Interaction
+    // E: Ultrahand Magnetic Grip / Release & Shrine/Goddess/Great Fairy/Lightroot/Chest Interaction
     input.onAction('KeyE', () => {
       if (!this.isGameRunning || this.isPaused || buildMenu.isOpen) return;
+      if (environment.greatFairyFountain && player.position.distanceTo(environment.greatFairyFountain.position) < 6.8) {
+        hud.showGreatFairyModal(player);
+        return;
+      }
       if (this.shrineSystem && this.shrineSystem.interact(player)) {
         return;
       }
@@ -260,6 +269,14 @@ class Game {
       hud.toggleMap(player, terrain, multiplayer);
     });
 
+    // I or Tab: Tears of the Kingdom Inventory & Equipment Menu
+    const toggleInv = () => {
+      if (!this.isGameRunning || this.isPaused) return;
+      hud.toggleTotkInventory(player);
+    };
+    input.onAction('KeyI', toggleInv);
+    input.onAction('Tab', toggleInv);
+
     // B: Evermean Civilization Build Menu
     input.onAction('KeyB', () => {
       if (!this.isGameRunning || this.isPaused) return;
@@ -278,9 +295,26 @@ class Game {
       player.toggleLinkMode();
     });
 
-    // Escape: Pause / Main Menu / Close Map & Build
+    // Escape: Pause / Main Menu / Close Map & Modals
     input.onAction('Escape', () => {
       if (!this.isGameRunning) return;
+      const invModal = document.getElementById('totk-inventory-modal');
+      if (invModal && invModal.style.display === 'flex') {
+        hud.toggleTotkInventory(player);
+        return;
+      }
+      const cookModal = document.getElementById('cooking-modal');
+      if (cookModal && cookModal.style.display === 'flex') {
+        cookModal.style.display = 'none';
+        input.requestPointerLock();
+        return;
+      }
+      const fairyModal = document.getElementById('great-fairy-modal');
+      if (fairyModal && fairyModal.style.display === 'flex') {
+        fairyModal.style.display = 'none';
+        input.requestPointerLock();
+        return;
+      }
       const mapOverlay = document.getElementById('topographic-map-overlay');
       if (mapOverlay && mapOverlay.style.display === 'flex') {
         hud.closeMap();
@@ -423,8 +457,8 @@ class Game {
 
       // Tears of the Kingdom Opening: Stepping onto the Great Sky Island Diving Board triggers the Title Card & Fanfare!
       if (!this.titleCardShown && player.position.y > 75) {
-        const distToDiving = Math.hypot(player.position.x - 10, player.position.z - 28);
-        if (distToDiving < 5.5) {
+        const isNearDiving = (Math.abs(player.position.x - 10) <= 6.0 && player.position.z <= 36.0 && player.position.z >= 16.0);
+        if (isNearDiving) {
           this.titleCardShown = true;
           audio.playTotkTitleFanfare?.();
           hud.showTotkTitleCard();

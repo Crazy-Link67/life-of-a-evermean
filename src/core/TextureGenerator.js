@@ -704,6 +704,261 @@ export class TextureGenerator {
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
   }
+
+  // Smooth Vector Tears of the Kingdom Paraglider Sailcloth Texture
+  static createParagliderSailTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Warm cream canvas cloth base
+    const grad = ctx.createLinearGradient(0, 0, 512, 512);
+    grad.addColorStop(0, '#fef9ee');
+    grad.addColorStop(0.5, '#fef3c7');
+    grad.addColorStop(1, '#fde68a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Subtle fabric weave texture
+    ctx.strokeStyle = 'rgba(180, 140, 90, 0.12)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 512; i += 6) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, 512);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(512, i);
+      ctx.stroke();
+    }
+
+    // 2. Dark brown geometric border trim along the edges
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 14;
+    ctx.strokeRect(16, 16, 480, 480);
+
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(26, 26, 460, 460);
+
+    // Corner decorative Zonai diamond runes
+    [[40, 40], [472, 40], [40, 472], [472, 472]].forEach(([cx, cy]) => {
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 14);
+      ctx.lineTo(cx + 14, cy);
+      ctx.lineTo(cx, cy + 14);
+      ctx.lineTo(cx - 14, cy);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // 3. Golden Triforce at the top center of the canopy
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 3;
+
+    const drawTri = (x, y, s) => {
+      ctx.beginPath();
+      ctx.moveTo(x, y - s);
+      ctx.lineTo(x + s * 0.866, y + s * 0.5);
+      ctx.lineTo(x - s * 0.866, y + s * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    };
+
+    drawTri(256, 110, 24);
+    drawTri(235, 148, 24);
+    drawTri(277, 148, 24);
+
+    // 4. Crimson Red Loftwing Royal Crest in Center
+    ctx.fillStyle = '#dc2626';
+    ctx.strokeStyle = '#991b1b';
+    ctx.lineWidth = 3;
+
+    // Body & head
+    ctx.beginPath();
+    ctx.arc(256, 260, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(256, 230);
+    ctx.lineTo(268, 205);
+    ctx.lineTo(244, 205);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Sweeping Wing Left
+    ctx.beginPath();
+    ctx.moveTo(240, 250);
+    ctx.bezierCurveTo(180, 210, 110, 230, 70, 310);
+    ctx.bezierCurveTo(120, 310, 170, 290, 235, 275);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Wing Left feathers
+    [100, 135, 175].forEach(fx => {
+      ctx.beginPath();
+      ctx.moveTo(fx, 280);
+      ctx.lineTo(fx - 18, 335);
+      ctx.lineTo(fx + 10, 300);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Sweeping Wing Right
+    ctx.beginPath();
+    ctx.moveTo(272, 250);
+    ctx.bezierCurveTo(332, 210, 402, 230, 442, 310);
+    ctx.bezierCurveTo(392, 310, 342, 290, 277, 275);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Wing Right feathers
+    [412, 377, 337].forEach(fx => {
+      ctx.beginPath();
+      ctx.moveTo(fx, 280);
+      ctx.lineTo(fx + 18, 335);
+      ctx.lineTo(fx - 10, 300);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Tail Feathers
+    ctx.beginPath();
+    ctx.moveTo(256, 280);
+    ctx.lineTo(235, 410);
+    ctx.lineTo(256, 385);
+    ctx.lineTo(277, 410);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true;
+    return texture;
+  }
+
+  // Smooth Vector Hylian Shield Texture
+  static createHylianShieldTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Royal Blue Background with radial sheen
+    const bg = ctx.createRadialGradient(256, 220, 40, 256, 256, 250);
+    bg.addColorStop(0, '#2563eb');
+    bg.addColorStop(0.6, '#1d4ed8');
+    bg.addColorStop(1, '#0f172a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Silver Bevel Edge
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 18;
+    ctx.strokeRect(18, 18, 476, 476);
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(28, 28, 456, 456);
+
+    // Golden Triforce
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 4;
+
+    const drawT = (x, y, s) => {
+      ctx.beginPath();
+      ctx.moveTo(x, y - s);
+      ctx.lineTo(x + s * 0.866, y + s * 0.5);
+      ctx.lineTo(x - s * 0.866, y + s * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    };
+    drawT(256, 120, 32);
+    drawT(228, 172, 32);
+    drawT(284, 172, 32);
+
+    // Crimson Loftwing Crest
+    ctx.fillStyle = '#ef4444';
+    ctx.strokeStyle = '#991b1b';
+    ctx.lineWidth = 4;
+
+    // Head / Body
+    ctx.beginPath();
+    ctx.arc(256, 290, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Wings
+    ctx.beginPath();
+    ctx.moveTo(256, 280);
+    ctx.bezierCurveTo(180, 230, 90, 280, 60, 360);
+    ctx.bezierCurveTo(130, 350, 190, 330, 256, 310);
+    ctx.bezierCurveTo(322, 330, 382, 350, 452, 360);
+    ctx.bezierCurveTo(422, 280, 332, 230, 256, 280);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Lower Shield Heraldry Chevron
+    ctx.fillStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.moveTo(256, 450);
+    ctx.lineTo(190, 390);
+    ctx.lineTo(210, 390);
+    ctx.lineTo(256, 430);
+    ctx.lineTo(302, 390);
+    ctx.lineTo(322, 390);
+    ctx.closePath();
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true;
+    return texture;
+  }
+
+  // Great Fairy Floral Petal Texture
+  static createGreatFairyPetalTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#f472b6');
+    grad.addColorStop(0.5, '#ec4899');
+    grad.addColorStop(1, '#831843');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Golden ethereal vein lines
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.45)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.moveTo(128, 256);
+      ctx.quadraticCurveTo(60 + i * 25, 120, 80 + i * 20, 10);
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    return texture;
+  }
 }
 
 

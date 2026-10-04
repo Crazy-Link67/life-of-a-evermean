@@ -100,6 +100,41 @@ export class PlayerEvermean {
     this.linkMaxHearts = 6;
     this.zonaiEnergy = 100;
     this.zonaiMaxEnergy = 100;
+
+    // Link Equipment & TOTK Inventory System
+    this.isShieldRaised = false;
+    this.equippedWeapon = { id: 'master_sword', name: 'Master Sword', atk: 30, icon: '🗡️', desc: 'The legendary blade that seals the darkness.' };
+    this.equippedShield = { id: 'hylian_shield', name: 'Hylian Shield', def: 90, icon: '🛡️', desc: 'A legendary indestructible shield blessed by the Goddess.' };
+    this.equippedArmor = { id: 'champions_leathers', name: "Champion's Leathers", def: 32, icon: '🥋', desc: 'Cyan tunic embroidered with white crests, restored by Zelda.' };
+
+    this.totkInventory = {
+      weapons: [
+        { id: 'master_sword', name: 'Master Sword', atk: 30, icon: '🗡️', desc: 'The legendary blade that seals the darkness.' },
+        { id: 'soldier_broadsword', name: "Soldier's Broadsword", atk: 16, icon: '⚔️', desc: 'A sleek steel blade used by Hyrulean knights.' },
+        { id: 'rusty_claymore', name: 'Rusty Claymore', atk: 12, icon: '🗡️', desc: 'A weathered two-handed blade found in ruins.' }
+      ],
+      shields: [
+        { id: 'hylian_shield', name: 'Hylian Shield', def: 90, icon: '🛡️', desc: 'A legendary indestructible shield blessed by the Goddess.' },
+        { id: 'pot_lid', name: 'Pot Lid', def: 2, icon: '🥘', desc: 'A wooden soup pot lid, surprisingly good for parrying.' },
+        { id: 'wooden_shield', name: 'Wooden Shield', def: 6, icon: '🛡️', desc: 'A lightweight shield carved from thick forest oak.' }
+      ],
+      armor: [
+        { id: 'champions_leathers', name: "Champion's Leathers", def: 32, icon: '🥋', desc: 'Cyan tunic embroidered with white crests, restored by Zelda.' },
+        { id: 'hylian_tunic', name: 'Hylian Tunic', def: 12, icon: '👕', desc: 'Standard comfortable traveling clothes.' },
+        { id: 'glide_shirt', name: 'Glide Shirt', def: 18, icon: '🪂', desc: 'Aerodynamic flight suit crafted for sky diving mastery.' }
+      ],
+      materials: [
+        { id: 'apple', name: 'Apple', qty: 6, icon: '🍎', desc: 'A crisp, sweet woodland fruit. Restores hearts when cooked.' },
+        { id: 'hylian_shroom', name: 'Hylian Shroom', qty: 4, icon: '🍄', desc: 'A common mushroom found at the base of forest trees.' },
+        { id: 'raw_meat', name: 'Raw Prime Meat', qty: 2, icon: '🥩', desc: 'High-grade fresh venison. Sizzles deliciously over campfires.' },
+        { id: 'sundelion', name: 'Sundelion', qty: 3, icon: '🌼', desc: 'Wild golden blossom that flourishes in high sky sunlight. Cures gloom.' },
+        { id: 'silent_princess', name: 'Silent Princess', qty: 2, icon: '🌸', desc: 'A rare and sacred flower beloved by Princess Zelda.' }
+      ],
+      meals: [
+        { id: 'hearty_steamed_meat', name: 'Hearty Steamed Meat', hearts: 6, stamina: 60, icon: '🍲', desc: 'Savory simmered meat with herbs. Restores full hearts!' },
+        { id: 'simmered_fruit', name: 'Energizing Simmered Fruit', hearts: 4, stamina: 100, icon: '🥗', desc: 'Warm sweet forest apples boiled to perfection. Refills stamina.' }
+      ]
+    };
   }
 
   init(scene, camera, terrain, engine, speciesPresetKey = 'oak', customConfig = {}) {
@@ -436,6 +471,17 @@ export class PlayerEvermean {
 
   // Paraglider / Leaf Canopy deploy
   attachGliderMesh() {
+    if (this.isLinkMode) {
+      if (this.linkModelTP?.userData?.paraglider) {
+        this.linkModelTP.userData.paraglider.visible = true;
+      }
+      if (this.linkModelFP?.userData?.paragliderFP) {
+        this.linkModelFP.userData.paragliderFP.visible = true;
+      }
+      audio.playParagliderOpen?.();
+      return;
+    }
+
     if (this.gliderMesh || !this.thirdPersonModel) return;
     const glider = new THREE.Group();
 
@@ -470,6 +516,12 @@ export class PlayerEvermean {
   }
 
   detachGliderMesh() {
+    if (this.linkModelTP?.userData?.paraglider) {
+      this.linkModelTP.userData.paraglider.visible = false;
+    }
+    if (this.linkModelFP?.userData?.paragliderFP) {
+      this.linkModelFP.userData.paragliderFP.visible = false;
+    }
     if (this.gliderMesh && this.thirdPersonModel) {
       this.thirdPersonModel.remove(this.gliderMesh);
       this.gliderMesh = null;
@@ -1124,6 +1176,19 @@ export class PlayerEvermean {
 
   takeDamage(amount, source = 'Enemy') {
     if (this.isLinkMode) {
+      if (this.isShieldRaised) {
+        // 100% Shield Block Deflection!
+        audio.playShieldBlock?.();
+        if (this.engine) {
+          this.engine.spawnParticles(this.position, 14, 0xfacc15, 3.5, 0.1);
+          this.engine.spawnShockwave(this.position, 2.2, 0x38bdf8);
+        }
+        if (window.showGameNotification) {
+          window.showGameNotification(`🛡️ DEFLECTED! Attack blocked with ${this.equippedShield?.name || 'Hylian Shield'}! (0 Damage)`);
+        }
+        return;
+      }
+
       const heartDmg = Math.max(0.5, Math.ceil((amount / 20) * 2) / 2);
       this.linkHearts = Math.max(0, this.linkHearts - heartDmg);
       this.barkHp = Math.max(0, this.barkHp - amount);
@@ -1350,6 +1415,12 @@ export class PlayerEvermean {
     let effectiveGroundHeight = this.terrain.getHeight(this.position.x, this.position.z, this.position.y);
     let isOnSkyIsland = false;
 
+    // Great Sky Island Diving Board explicit support (prevents falling off prematurely)
+    if (Math.abs(this.position.x - 10) <= 2.6 && this.position.z >= 20.0 && this.position.z <= 36.0 && this.position.y >= 78.0) {
+      effectiveGroundHeight = 84.5;
+      isOnSkyIsland = true;
+    }
+
     if (environment && environment.skyIslands) {
       for (const isl of environment.skyIslands) {
         const u = isl.userData;
@@ -1442,8 +1513,8 @@ export class PlayerEvermean {
           this.isGliding = true;
           this.attachGliderMesh();
         }
-        // Smoothly settle at terminal descent speed (-3.0 m/s)
-        this.velocity.y = THREE.MathUtils.lerp(this.velocity.y, -3.0, delta * 6);
+        // Smoothly settle at terminal descent speed (-2.8 m/s)
+        this.velocity.y = THREE.MathUtils.lerp(this.velocity.y, -2.8, delta * 6);
         this.stamina = Math.max(0, this.stamina - delta * 6);
         this.bodyPitch = THREE.MathUtils.lerp(this.bodyPitch, 0.18, delta * 8);
 
@@ -1456,20 +1527,32 @@ export class PlayerEvermean {
         this.detachGliderMesh();
       }
 
+      const treeEyeHeight = 1.1 + (this.growthStage - 1) * 0.55;
+      const targetGroundedY = effectiveGroundHeight + treeEyeHeight;
+
       // Gravity & Ground Snapping (allows freefall into the Gloom Chasm down to -90m Depths!)
       if (!this.isGliding) {
-        this.velocity.y -= 18.0 * delta;
-      }
-      this.position.y += this.velocity.y * delta;
-
-      const treeEyeHeight = 1.1 + (this.growthStage - 1) * 0.55;
-      if (this.position.y <= effectiveGroundHeight + treeEyeHeight) {
-        this.position.y = effectiveGroundHeight + treeEyeHeight;
-        this.velocity.y = 0;
-        this.isGrounded = true;
-        if (this.isGliding) {
-          this.isGliding = false;
-          this.detachGliderMesh();
+        if (!this.isGrounded) {
+          this.velocity.y -= 18.0 * delta;
+          this.position.y += this.velocity.y * delta;
+          if (this.position.y <= targetGroundedY) {
+            this.position.y = targetGroundedY;
+            this.velocity.y = 0;
+            this.isGrounded = true;
+            if (this.isGliding) {
+              this.isGliding = false;
+              this.detachGliderMesh();
+            }
+          }
+        } else {
+          // Check if walked off a ledge or cliff
+          if (this.position.y > targetGroundedY + 0.25) {
+            this.isGrounded = false;
+          } else {
+            // Smoothly conform to terrain without vibration
+            this.position.y = THREE.MathUtils.lerp(this.position.y, targetGroundedY, Math.min(1.0, delta * 24));
+            this.velocity.y = 0;
+          }
         }
       }
     }
@@ -1691,7 +1774,13 @@ export class PlayerEvermean {
       const walkSpeed = isSprinting ? 9.5 : 5.8;
       if (isMoving && this.isGrounded) {
         this.walkCycle = (this.walkCycle || 0) + delta * walkSpeed;
+        if (this.stepTimer === 0) {
+          audio.playLinkFootstep?.();
+        }
       }
+
+      // Check Shield Raising (KeyZ or Shift when not sprinting)
+      this.isShieldRaised = input.isKeyDown('KeyZ') || (input.isKeyDown('ShiftLeft') && !isMoving);
 
       if (this.linkModelTP) {
         this.linkModelTP.position.copy(this.position);
@@ -1703,43 +1792,91 @@ export class PlayerEvermean {
           this.linkModelTP.rotation.y = this.yaw + (1 - this.attackTimer / 0.55) * Math.PI * 2;
         }
 
-        const lLeg = this.linkModelTP.userData.leftLeg;
-        const rLeg = this.linkModelTP.userData.rightLeg;
+        const lLeg = this.linkModelTP.userData.legL || this.linkModelTP.userData.leftLeg;
+        const rLeg = this.linkModelTP.userData.legR || this.linkModelTP.userData.rightLeg;
         if (lLeg && rLeg) {
-          if (isMoving && this.isGrounded) {
+          if (this.isGliding) {
+            // Gliding: legs stream back slightly into the slipstream
+            lLeg.rotation.x = -0.45;
+            rLeg.rotation.x = -0.45;
+            lLeg.rotation.z = -0.15;
+            rLeg.rotation.z = 0.15;
+          } else if (isMoving && this.isGrounded) {
             lLeg.rotation.x = Math.sin(this.walkCycle) * (isSprinting ? 0.75 : 0.45);
             rLeg.rotation.x = -Math.sin(this.walkCycle) * (isSprinting ? 0.75 : 0.45);
+            lLeg.rotation.z = 0;
+            rLeg.rotation.z = 0;
           } else {
             lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, 0, delta * 8);
             rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, 0, delta * 8);
+            lLeg.rotation.z = 0;
+            rLeg.rotation.z = 0;
           }
         }
 
-        const lArm = this.linkModelTP.userData.leftArm;
-        const rArm = this.linkModelTP.userData.rightArm;
-        if (lArm) {
-          if (isMoving && this.isGrounded) {
-            lArm.rotation.x = -Math.sin(this.walkCycle) * 0.4;
-          } else {
-            lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, 0, delta * 8);
+        const lArm = this.linkModelTP.userData.armL || this.linkModelTP.userData.leftArm;
+        const rArm = this.linkModelTP.userData.armR || this.linkModelTP.userData.rightArm;
+
+        if (this.isGliding) {
+          // Dual arms raised overhead gripping paraglider handles
+          if (lArm) {
+            lArm.rotation.set(-2.6, 0.2, -0.3);
+            lArm.position.set(-0.38, 1.58, 0);
           }
-        }
-        if (rArm) {
-          if (this.isAttacking) {
-            const swingProgress = (0.42 - this.attackTimer) / 0.42;
-            rArm.rotation.x = -0.4 - Math.sin(swingProgress * Math.PI) * 1.5;
-            rArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.8;
-          } else if (isMoving && this.isGrounded) {
-            rArm.rotation.x = Math.sin(this.walkCycle) * 0.4;
-            rArm.rotation.y = THREE.MathUtils.lerp(rArm.rotation.y, 0, delta * 8);
-          } else {
-            rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, 0, delta * 8);
-            rArm.rotation.y = THREE.MathUtils.lerp(rArm.rotation.y, 0, delta * 8);
+          if (rArm) {
+            rArm.rotation.set(-2.6, -0.2, 0.3);
+            rArm.position.set(0.38, 1.58, 0);
+          }
+          if (this.linkModelTP.userData.shieldInHand) this.linkModelTP.userData.shieldInHand.visible = false;
+          if (this.linkModelTP.userData.shield) this.linkModelTP.userData.shield.visible = true;
+        } else if (this.isShieldRaised) {
+          // Left arm raises shield in front of body defensively
+          if (lArm) {
+            lArm.rotation.set(-0.95, 0.55, -0.2);
+            lArm.position.set(-0.25, 1.58, 0.2);
+          }
+          if (this.linkModelTP.userData.shieldInHand) this.linkModelTP.userData.shieldInHand.visible = true;
+          if (this.linkModelTP.userData.shield) this.linkModelTP.userData.shield.visible = false;
+
+          if (rArm) {
+            rArm.position.set(0.38, 1.58, 0);
+            rArm.rotation.set(0.3, -0.2, 0.1);
+          }
+        } else {
+          if (this.linkModelTP.userData.shieldInHand) this.linkModelTP.userData.shieldInHand.visible = false;
+          if (this.linkModelTP.userData.shield) this.linkModelTP.userData.shield.visible = true;
+
+          if (lArm) {
+            lArm.position.set(-0.38, 1.58, 0);
+            if (isMoving && this.isGrounded) {
+              lArm.rotation.x = -Math.sin(this.walkCycle) * 0.4;
+              lArm.rotation.y = 0;
+              lArm.rotation.z = 0;
+            } else {
+              lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, 0, delta * 8);
+              lArm.rotation.y = 0;
+              lArm.rotation.z = 0;
+            }
+          }
+
+          if (rArm) {
+            rArm.position.set(0.38, 1.58, 0);
+            if (this.isAttacking) {
+              const swingProgress = (0.42 - this.attackTimer) / 0.42;
+              rArm.rotation.x = -0.4 - Math.sin(swingProgress * Math.PI) * 1.5;
+              rArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.8;
+            } else if (isMoving && this.isGrounded) {
+              rArm.rotation.x = Math.sin(this.walkCycle) * 0.4;
+              rArm.rotation.y = THREE.MathUtils.lerp(rArm.rotation.y, 0, delta * 8);
+            } else {
+              rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, 0, delta * 8);
+              rArm.rotation.y = THREE.MathUtils.lerp(rArm.rotation.y, 0, delta * 8);
+            }
           }
         }
 
-        if (this.linkModelTP.userData.runeLines) {
-          this.linkModelTP.userData.runeLines.material.emissiveIntensity = 0.8 + Math.sin(Date.now() * 0.005) * 0.3;
+        if (this.linkModelTP.userData.palmCore) {
+          this.linkModelTP.userData.palmCore.material.emissiveIntensity = 1.0 + Math.sin(Date.now() * 0.005) * 0.5;
         }
       }
 
@@ -1749,23 +1886,52 @@ export class PlayerEvermean {
         const bobY = isMoving ? Math.sin(time * 2.2) * (isSprinting ? 0.03 : 0.015) : Math.sin(time * 0.8) * 0.005;
         const bobX = isMoving ? Math.cos(time * 1.1) * (isSprinting ? 0.02 : 0.01) : 0;
 
-        if (fpArms.leftArm) {
-          fpArms.leftArm.position.x = -0.38 + bobX * 0.4;
-          fpArms.leftArm.position.y = -0.35 + bobY;
-        }
-        if (fpArms.rightArm) {
-          fpArms.rightArm.position.x = 0.38 + bobX * 0.4;
-          fpArms.rightArm.position.y = -0.35 + bobY;
+        if (this.isGliding) {
+          if (fpArms.paragliderFP) fpArms.paragliderFP.visible = true;
+          if (fpArms.shieldFP) fpArms.shieldFP.visible = false;
+          if (fpArms.armL) {
+            fpArms.armL.position.set(-0.35, 0.28, -0.4);
+            fpArms.armL.rotation.set(-0.9, 0.1, -0.15);
+          }
+          if (fpArms.armR) {
+            fpArms.armR.position.set(0.35, 0.28, -0.4);
+            fpArms.armR.rotation.set(-0.9, -0.1, 0.15);
+          }
+        } else if (this.isShieldRaised) {
+          if (fpArms.paragliderFP) fpArms.paragliderFP.visible = false;
+          if (fpArms.shieldFP) fpArms.shieldFP.visible = true;
+          if (fpArms.armL) {
+            fpArms.armL.position.set(-0.15, -0.12, -0.35);
+            fpArms.armL.rotation.set(0.4, 0.35, -0.2);
+          }
+          if (fpArms.armR) {
+            fpArms.armR.position.x = 0.42;
+            fpArms.armR.position.y = -0.38;
+            fpArms.armR.rotation.set(0.35, -0.2, 0.1);
+          }
+        } else {
+          if (fpArms.paragliderFP) fpArms.paragliderFP.visible = false;
+          if (fpArms.shieldFP) fpArms.shieldFP.visible = false;
+          if (fpArms.armL) {
+            fpArms.armL.position.x = -0.38 + bobX * 0.4;
+            fpArms.armL.position.y = -0.35 + bobY;
+            fpArms.armL.position.z = -0.45;
+            fpArms.armL.rotation.set(0.2, 0.15, -0.1);
+          }
+          if (fpArms.armR) {
+            fpArms.armR.position.x = 0.38 + bobX * 0.4;
+            fpArms.armR.position.y = -0.35 + bobY;
 
-          if (this.isAttacking) {
-            const swingProgress = Math.max(0, Math.min(1, (0.42 - this.attackTimer) / 0.42));
-            fpArms.rightArm.rotation.x = 0.2 + Math.sin(swingProgress * Math.PI) * 1.2;
-            fpArms.rightArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.9;
-            fpArms.rightArm.position.z = -0.55 - Math.sin(swingProgress * Math.PI) * 0.25;
-          } else {
-            fpArms.rightArm.rotation.x = THREE.MathUtils.lerp(fpArms.rightArm.rotation.x, 0.2, delta * 10);
-            fpArms.rightArm.rotation.y = THREE.MathUtils.lerp(fpArms.rightArm.rotation.y, 0, delta * 10);
-            fpArms.rightArm.position.z = THREE.MathUtils.lerp(fpArms.rightArm.position.z, -0.55, delta * 10);
+            if (this.isAttacking) {
+              const swingProgress = Math.max(0, Math.min(1, (0.42 - this.attackTimer) / 0.42));
+              fpArms.rightArm.rotation.x = 0.2 + Math.sin(swingProgress * Math.PI) * 1.2;
+              fpArms.rightArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.9;
+              fpArms.rightArm.position.z = -0.55 - Math.sin(swingProgress * Math.PI) * 0.25;
+            } else {
+              fpArms.rightArm.rotation.x = THREE.MathUtils.lerp(fpArms.rightArm.rotation.x, 0.2, delta * 10);
+              fpArms.rightArm.rotation.y = THREE.MathUtils.lerp(fpArms.rightArm.rotation.y, 0, delta * 10);
+              fpArms.rightArm.position.z = THREE.MathUtils.lerp(fpArms.rightArm.position.z, -0.55, delta * 10);
+            }
           }
         }
       }
@@ -1925,7 +2091,7 @@ export class PlayerEvermean {
       const camY = Math.max(camGround + 1.2, this.position.y + 1.2 + vDist);
 
       const targetCamPos = new THREE.Vector3(camX, camY, camZ);
-      this.camera.position.lerp(targetCamPos, delta * 18);
+      this.camera.position.lerp(targetCamPos, Math.min(1.0, delta * 18));
       this.camera.lookAt(this.position.x, this.position.y + 0.6, this.position.z);
     }
 
@@ -1936,7 +2102,7 @@ export class PlayerEvermean {
       const groundH = this.terrain.getHeight(holdPos.x, holdPos.z);
       holdPos.y = Math.max(groundH + 0.8, this.position.y + 0.5 - this.pitch * 1.5);
 
-      this.heldUltrahandObject.position.lerp(holdPos, delta * 12);
+      this.heldUltrahandObject.position.lerp(holdPos, Math.min(1.0, delta * 12));
       if (this.engine) {
         this.engine.renderUltrahandTether(this.position, this.heldUltrahandObject.position);
       }
@@ -1950,6 +2116,131 @@ export class PlayerEvermean {
     const distToLake = Math.hypot(this.position.x, this.position.z - 65);
     const minWaterDist = Math.min(distToRiver, distToLake);
     audio.updateWaterProximity(minWaterDist);
+  }
+
+  // Cook ingredients at a campfire into hearty meals
+  cookIngredients(ingredientIds) {
+    if (!ingredientIds || ingredientIds.length === 0) return null;
+
+    // Deduct materials from inventory
+    ingredientIds.forEach(id => {
+      const mat = this.totkInventory.materials.find(m => m.id === id);
+      if (mat && mat.qty > 0) mat.qty--;
+    });
+    this.totkInventory.materials = this.totkInventory.materials.filter(m => m.qty > 0);
+
+    let meal = null;
+    if (ingredientIds.includes('raw_meat')) {
+      meal = {
+        id: 'hearty_steamed_meat_' + Date.now(),
+        name: 'Hearty Steamed Meat',
+        hearts: 6,
+        stamina: 60,
+        icon: '🍲',
+        desc: 'Tender simmered meat infused with wild herbs. Fully restores vitality!'
+      };
+    } else if (ingredientIds.includes('apple')) {
+      meal = {
+        id: 'simmered_fruit_' + Date.now(),
+        name: 'Energizing Simmered Fruit',
+        hearts: 4,
+        stamina: 100,
+        icon: '🥗',
+        desc: 'Sweet stewed apples and wild greens. Restores full stamina wheel!'
+      };
+    } else if (ingredientIds.includes('sundelion')) {
+      meal = {
+        id: 'sunny_fried_wild_greens_' + Date.now(),
+        name: 'Sunny Fried Wild Greens',
+        hearts: 5,
+        stamina: 40,
+        icon: '🥗',
+        desc: 'Golden sundelions fried in fragrant oil. Heals gloom and cures corrupted hearts!'
+      };
+    } else {
+      meal = {
+        id: 'simmered_medley_' + Date.now(),
+        name: 'Simmered Medley',
+        hearts: 3,
+        stamina: 30,
+        icon: '🥣',
+        desc: 'A warm, filling mixture of wild ingredients.'
+      };
+    }
+
+    this.totkInventory.meals.push(meal);
+    audio.playCookingJingle?.();
+    if (this.engine) {
+      this.engine.spawnParticles(this.position, 20, 0xfacc15, 3.5, 0.12);
+      this.engine.spawnShockwave(this.position, 2.5, 0x22c55e);
+    }
+    if (window.showGameNotification) {
+      window.showGameNotification(`🍳 COOKED: ${meal.name}! (+${meal.hearts} Hearts, +${meal.stamina} Stamina)`);
+    }
+    return meal;
+  }
+
+  // Consume a meal to restore Link's hearts and stamina
+  eatMeal(mealId) {
+    const idx = this.totkInventory.meals.findIndex(m => m.id === mealId);
+    if (idx === -1) return false;
+    const meal = this.totkInventory.meals[idx];
+    this.totkInventory.meals.splice(idx, 1);
+
+    if (this.isLinkMode) {
+      this.linkHearts = Math.min(this.linkMaxHearts, this.linkHearts + (meal.hearts || 3));
+    }
+    this.barkHp = Math.min(this.maxBarkHp, this.barkHp + (meal.hearts || 3) * 20);
+    this.stamina = Math.min(this.maxStamina, this.stamina + (meal.stamina || 50));
+    audio.playEatMeal?.();
+    if (this.engine) {
+      this.engine.spawnParticles(this.position, 16, 0x4ade80, 2.5, 0.1);
+    }
+    if (window.showGameNotification) {
+      window.showGameNotification(`😋 Consumed ${meal.name}! Restored health and stamina.`);
+    }
+    return true;
+  }
+
+  // Equip a weapon, shield, or armor
+  equipItem(category, item) {
+    if (category === 'weapons') {
+      this.equippedWeapon = item;
+      audio.playEquipWeapon?.();
+    } else if (category === 'shields') {
+      this.equippedShield = item;
+      audio.playEquipShield?.();
+    } else if (category === 'armor') {
+      this.equippedArmor = item;
+      audio.playEquipArmor?.();
+    }
+    if (window.showGameNotification) {
+      window.showGameNotification(`🛡️ Equipped ${item.name}!`);
+    }
+  }
+
+  // Great Fairy Blessing
+  receiveFairyBlessing(type = 'hearts') {
+    if (type === 'hearts') {
+      this.linkMaxHearts += 2;
+      this.linkHearts = this.linkMaxHearts;
+      this.maxBarkHp += 40;
+      this.barkHp = this.maxBarkHp;
+      if (window.showGameNotification) {
+        window.showGameNotification(`🧚 GREAT FAIRY BLESSING: Max Hearts upgraded to ${this.linkMaxHearts}! Health fully restored!`);
+      }
+    } else {
+      this.maxStamina += 25;
+      this.stamina = this.maxStamina;
+      if (window.showGameNotification) {
+        window.showGameNotification('🧚 GREAT FAIRY BLESSING: Max Stamina upgraded! Stamina fully restored!');
+      }
+    }
+    audio.playGreatFairyBlessing?.();
+    if (this.engine) {
+      this.engine.spawnCosmicBurst(this.position, 60);
+      this.engine.spawnShockwave(this.position, 8.0, 0xec4899);
+    }
   }
 }
 

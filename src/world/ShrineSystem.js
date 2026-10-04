@@ -109,8 +109,10 @@ export class ShrineSystem {
       baseMesh.receiveShadow = true;
       group.add(baseMesh);
 
-      // Solid collision for shrine foundation
-      collision.addCylinder(def.x, def.z, 4.6, y - 0.5, y + 1.8, 'ShrineBase_' + def.id);
+      // Solid collision for shrine side pillars (keeps entrance archway open!)
+      collision.addCylinder(def.x - 2.2, def.z, 0.7, y, y + 4.8, 'ShrinePillarL_' + def.id);
+      collision.addCylinder(def.x + 2.2, def.z, 0.7, y, y + 4.8, 'ShrinePillarR_' + def.id);
+      collision.addCylinder(def.x, def.z - 3.4, 1.2, y, y + 4.8, 'ShrineBack_' + def.id);
 
       // 2. Zonai Shrine Shell Pillars / Arch
       const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 4.8, 1.0), archMat);
@@ -673,13 +675,14 @@ export class ShrineSystem {
       }
 
       // Walk-In Shrine Access: walk right into the green archway to enter!
-      const dist = shrine.meshGroup.position.distanceTo(player.position);
-      if (dist < 2.5 && !this.activeDungeon && this.warpCooldown <= 0) {
+      const distH = Math.hypot(shrine.surfacePos.x - player.position.x, shrine.surfacePos.z - player.position.z);
+      const dy = Math.abs(shrine.surfacePos.y - player.position.y);
+      if (distH < 4.2 && dy < 3.5 && !this.activeDungeon && this.warpCooldown <= 0) {
         this.enterDungeonChamber(shrine, player);
         return;
-      } else if (dist < 4.8 && !this.activeShrineModal && !this.activeDungeon) {
+      } else if (distH < 6.5 && !this.activeShrineModal && !this.activeDungeon) {
         if (window.setInteractPrompt) {
-          const status = shrine.completed ? 'Walk In / [E] to Enter' : 'Walk In / [E] to Enter 3D Trial:';
+          const status = shrine.completed ? 'Walk In / [E] to Enter' : 'Walk Through Archway to Enter Trial:';
           window.setInteractPrompt(`${status} ${shrine.name}`);
         }
       }

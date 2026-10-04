@@ -1,11 +1,91 @@
 import * as THREE from 'three';
+import { TextureGenerator } from '../core/TextureGenerator.js';
 
 // Procedural 3D Model Generator for Link (Hero of Hyrule - Tears of the Kingdom)
 // Faithful representation featuring the Champion's Tunic, Master Sword, Hylian Shield,
-// and King Rauru's glowing Zonai Right Arm.
+// Paraglider, Purah Pad, Zonai teardrop earrings, and King Rauru's glowing Zonai Right Arm.
 export class LinkModelGenerator {
 
-  // Create Third-Person 3D Link Model
+  // Create Tears of the Kingdom Sailcloth Paraglider Model
+  static createParagliderModel() {
+    const gliderGroup = new THREE.Group();
+    gliderGroup.name = 'Paraglider';
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.8 });
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.75, roughness: 0.3 });
+    const ropeMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.9 });
+
+    // Sailcloth Canopy with curved aerodynamic camber
+    const sailWidth = 2.6;
+    const sailDepth = 1.35;
+    const sailGeom = new THREE.PlaneGeometry(sailWidth, sailDepth, 16, 8);
+    const pos = sailGeom.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vy = pos.getY(i);
+      // Parabolic arch across width and gentle curve back
+      const arch = -0.18 * Math.pow(vx / (sailWidth * 0.5), 2);
+      const pitch = -0.06 * Math.pow(vy / (sailDepth * 0.5), 2);
+      pos.setZ(i, arch + pitch);
+    }
+    sailGeom.computeVertexNormals();
+
+    const sailTex = TextureGenerator.createParagliderSailTexture();
+    const sailMat = new THREE.MeshStandardMaterial({
+      map: sailTex,
+      side: THREE.DoubleSide,
+      roughness: 0.65,
+      metalness: 0.1
+    });
+
+    const sailMesh = new THREE.Mesh(sailGeom, sailMat);
+    sailMesh.rotation.x = -Math.PI / 2 + 0.12; // Canopy flat overhead with slight tilt
+    sailMesh.castShadow = true;
+    gliderGroup.add(sailMesh);
+
+    // Main transverse wooden spar (cross-beam)
+    const mainSpar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, sailWidth + 0.1, 8), woodMat);
+    mainSpar.rotation.z = Math.PI / 2;
+    mainSpar.position.set(0, 0.02, 0.15);
+    gliderGroup.add(mainSpar);
+
+    // Front curved wooden leading rim
+    const frontRim = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, sailWidth, 8), woodMat);
+    frontRim.rotation.z = Math.PI / 2;
+    frontRim.position.set(0, 0.06, -sailDepth * 0.45);
+    gliderGroup.add(frontRim);
+
+    // Longitudinal wooden ribs (3 arch ribs)
+    [-sailWidth * 0.4, 0, sailWidth * 0.4].forEach(rx => {
+      const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, sailDepth, 6), woodMat);
+      rib.rotation.x = Math.PI / 2;
+      rib.position.set(rx, 0.03, 0);
+      gliderGroup.add(rib);
+
+      // Gold metal bracket caps at spar intersections
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.09), metalMat);
+      cap.position.set(rx, 0.03, 0.15);
+      gliderGroup.add(cap);
+    });
+
+    // Dual vertical hanging grip handles for Link's hands
+    [-0.38, 0.38].forEach(hx => {
+      // Suspension strut
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.65, 6), ropeMat);
+      strut.position.set(hx, -0.32, 0.05);
+      gliderGroup.add(strut);
+
+      // Ergonomic leather hand grip at bottom
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.22, 8), woodMat);
+      grip.rotation.z = Math.PI / 2;
+      grip.position.set(hx, -0.62, 0.05);
+      gliderGroup.add(grip);
+    });
+
+    return gliderGroup;
+  }
+
+  // Create High-Fidelity Third-Person 3D Link Model
   static createLinkThirdPersonModel() {
     const linkGroup = new THREE.Group();
     linkGroup.name = 'LinkThirdPerson';
@@ -18,13 +98,14 @@ export class LinkModelGenerator {
     const leatherMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.8 });
     const pantsMat = new THREE.MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.85 });
     const bootMat = new THREE.MeshStandardMaterial({ color: 0x271810, roughness: 0.75 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
 
     // King Rauru's Corrupted Zonai Right Arm Materials
     const zonaiStoneMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.5, metalness: 0.2 });
     const zonaiRuneMat = new THREE.MeshStandardMaterial({
       color: 0x34d399,
       emissive: 0x10b981,
-      emissiveIntensity: 1.2,
+      emissiveIntensity: 1.3,
       roughness: 0.2
     });
 
@@ -37,12 +118,15 @@ export class LinkModelGenerator {
       emissiveIntensity: 0.25
     });
     const guardMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, metalness: 0.6, roughness: 0.3 });
-    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
 
-    // Hylian Shield Materials
-    const shieldBlueMat = new THREE.MeshStandardMaterial({ color: 0x1e40af, metalness: 0.4, roughness: 0.3 });
-    const shieldSilverMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.2 });
-    const shieldRedMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+    // Hylian Shield Material with Smooth Vector Texture
+    const shieldTex = TextureGenerator.createHylianShieldTexture();
+    const shieldMat = new THREE.MeshStandardMaterial({
+      map: shieldTex,
+      metalness: 0.65,
+      roughness: 0.25
+    });
+    const shieldRimMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 });
 
     // 1. Pelvis & Waist Belt
     const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 0.35), pantsMat);
@@ -56,6 +140,30 @@ export class LinkModelGenerator {
     const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.39), goldMat);
     buckle.position.y = 1.15;
     linkGroup.add(buckle);
+
+    // Purah Pad on Link's Left Hip
+    const purahPadGroup = new THREE.Group();
+    purahPadGroup.position.set(-0.31, 1.08, 0.05);
+    purahPadGroup.rotation.set(0.1, 0.15, 0.25);
+    const padBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.18), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 }));
+    purahPadGroup.add(padBody);
+    // Glowing Blue Zonai Screen
+    const padScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.06, 0.18),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    padScreen.rotation.y = -Math.PI / 2;
+    padScreen.position.x = -0.042;
+    purahPadGroup.add(padScreen);
+    // Golden Zonai Eye Ring
+    const padEye = new THREE.Mesh(
+      new THREE.TorusGeometry(0.035, 0.008, 6, 12),
+      goldMat
+    );
+    padEye.rotation.y = -Math.PI / 2;
+    padEye.position.x = -0.043;
+    purahPadGroup.add(padEye);
+    linkGroup.add(purahPadGroup);
 
     // 2. Torso (Champion's Tunic)
     const torsoGroup = new THREE.Group();
@@ -84,7 +192,7 @@ export class LinkModelGenerator {
 
     linkGroup.add(torsoGroup);
 
-    // 3. Head & Hylian Features
+    // 3. Head & Detailed Hylian Facial Features
     const headGroup = new THREE.Group();
     headGroup.position.set(0, 1.82, 0);
 
@@ -99,6 +207,18 @@ export class LinkModelGenerator {
       ear.rotation.z = idx === 0 ? Math.PI / 3 : -Math.PI / 3;
       ear.rotation.y = idx === 0 ? 0.25 : -0.25;
       headGroup.add(ear);
+
+      // King Rauru Zonai Teardrop Earring on Right Ear (idx === 1)
+      if (idx === 1) {
+        const earringLoop = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.005, 6, 10), goldMat);
+        earringLoop.position.set(ex + 0.06, -0.06, -0.02);
+        headGroup.add(earringLoop);
+
+        const earringDrop = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.08, 5), zonaiRuneMat);
+        earringDrop.position.set(ex + 0.06, -0.11, -0.02);
+        earringDrop.rotation.x = Math.PI;
+        headGroup.add(earringDrop);
+      }
     });
 
     // Flowing Blond Hair & Bangs
@@ -118,17 +238,39 @@ export class LinkModelGenerator {
     backHair.position.set(0, -0.08, -0.16);
     headGroup.add(backHair);
 
-    // Blue Eyes
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    // Blue Eyes with pupils
+    const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const irisMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
     [-0.08, 0.08].forEach(eyeX => {
-      const eye = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.02), eyeMat);
-      eye.position.set(eyeX, 0.02, 0.16);
-      headGroup.add(eye);
+      const eyeWhite = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.045, 0.02), eyeWhiteMat);
+      eyeWhite.position.set(eyeX, 0.02, 0.155);
+      headGroup.add(eyeWhite);
+
+      const iris = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.025), irisMat);
+      iris.position.set(eyeX, 0.02, 0.158);
+      headGroup.add(iris);
+
+      const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.028), pupilMat);
+      pupil.position.set(eyeX, 0.02, 0.16);
+      headGroup.add(pupil);
+
+      // Eyebrows
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.018, 0.02), hairMat);
+      brow.position.set(eyeX, 0.055, 0.16);
+      brow.rotation.z = (eyeX < 0 ? -0.12 : 0.12);
+      headGroup.add(brow);
     });
+
+    // Subtle Nose Bridge
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 4), skinMat);
+    nose.position.set(0, -0.015, 0.165);
+    nose.rotation.x = Math.PI / 2;
+    headGroup.add(nose);
 
     linkGroup.add(headGroup);
 
-    // 4. Left Arm (Champion's Sleeve & Gauntlet)
+    // 4. Left Arm (Champion's Sleeve & Gauntlet, holding shield or swinging)
     const armL = new THREE.Group();
     armL.position.set(-0.38, 1.58, 0);
 
@@ -143,6 +285,26 @@ export class LinkModelGenerator {
     const handL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), skinMat);
     handL.position.y = -0.56;
     armL.add(handL);
+
+    // In-Hand Hylian Shield on Left Arm (visible when blocking)
+    const shieldInHand = new THREE.Group();
+    shieldInHand.position.set(-0.06, -0.38, 0.18);
+    shieldInHand.rotation.set(0.1, 0.35, -0.1);
+
+    const inHandPlate = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.76, 0.05), shieldMat);
+    shieldInHand.add(inHandPlate);
+
+    const inHandRim = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.04), shieldRimMat);
+    inHandRim.position.z = -0.01;
+    shieldInHand.add(inHandRim);
+
+    // Leather arm straps on back of shield
+    const strapL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.06, 0.08), leatherMat);
+    strapL.position.set(0, 0, -0.06);
+    shieldInHand.add(strapL);
+
+    shieldInHand.visible = false; // Initially stowed on back
+    armL.add(shieldInHand);
 
     linkGroup.add(armL);
 
@@ -240,7 +402,6 @@ export class LinkModelGenerator {
     pommel.position.y = -0.28;
     swordGroup.add(pommel);
 
-    // Position sword drawn in right hand (initially hidden/stowed on back)
     swordGroup.scale.set(1.1, 1.1, 1.1);
 
     // Back Sheathed Sword Mount
@@ -255,31 +416,25 @@ export class LinkModelGenerator {
     swordGroup.visible = false;
     armR.add(swordGroup);
 
-    // 8. Hylian Shield (strapped to back or left arm)
-    const shieldGroup = new THREE.Group();
-    shieldGroup.position.set(0.08, 1.42, -0.25);
-    shieldGroup.rotation.set(0.1, -0.2, 0.15);
+    // 8. Hylian Shield on Back (uses smooth vector texture)
+    const backShieldGroup = new THREE.Group();
+    backShieldGroup.position.set(0.08, 1.42, -0.25);
+    backShieldGroup.rotation.set(0.1, -0.2, 0.15);
 
-    // Shield Body
-    const shieldPlate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.72, 0.06), shieldBlueMat);
-    shieldGroup.add(shieldPlate);
+    const backShieldPlate = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.76, 0.05), shieldMat);
+    backShieldGroup.add(backShieldPlate);
 
-    // Silver rim
-    const shieldRim = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.75, 0.04), shieldSilverMat);
-    shieldRim.position.z = -0.01;
-    shieldGroup.add(shieldRim);
+    const backShieldRim = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.04), shieldRimMat);
+    backShieldRim.position.z = -0.01;
+    backShieldGroup.add(backShieldRim);
 
-    // Gold Triforce symbol
-    const sTriforce = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.14, 3), goldMat);
-    sTriforce.position.set(0, 0.16, 0.04);
-    shieldGroup.add(sTriforce);
+    linkGroup.add(backShieldGroup);
 
-    // Red Loftwing emblem
-    const loftwing = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.02), shieldRedMat);
-    loftwing.position.set(0, -0.08, 0.04);
-    shieldGroup.add(loftwing);
-
-    linkGroup.add(shieldGroup);
+    // 9. Paraglider Attached Overhead (toggled during gliding)
+    const paraglider = LinkModelGenerator.createParagliderModel();
+    paraglider.position.set(0, 2.22, 0);
+    paraglider.visible = false;
+    linkGroup.add(paraglider);
 
     // UserData references for procedural kinematics
     linkGroup.userData = {
@@ -293,14 +448,16 @@ export class LinkModelGenerator {
       legs: [legL, legR],
       drawnSword: swordGroup,
       backSword: backSwordGroup,
-      shield: shieldGroup,
+      shield: backShieldGroup,
+      shieldInHand,
+      paraglider,
       palmCore
     };
 
     return linkGroup;
   }
 
-  // Create First-Person View Arms Rig for Link
+  // Create First-Person View Arms & Paraglider Rig for Link
   static createLinkFirstPersonModel() {
     const fpGroup = new THREE.Group();
     fpGroup.name = 'LinkFirstPerson';
@@ -325,7 +482,16 @@ export class LinkModelGenerator {
     const guardMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, metalness: 0.6, roughness: 0.3 });
     const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
 
-    // 1. Left Arm (Champion's Sleeve & Gauntlet)
+    // Hylian Shield for First-Person Blocking
+    const shieldTex = TextureGenerator.createHylianShieldTexture();
+    const fpShieldMat = new THREE.MeshStandardMaterial({
+      map: shieldTex,
+      metalness: 0.65,
+      roughness: 0.25
+    });
+    const fpRimMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 });
+
+    // 1. Left Arm (Champion's Sleeve & Gauntlet, with blockable shield)
     const armL = new THREE.Group();
     armL.position.set(-0.35, -0.28, -0.45);
     armL.rotation.set(0.2, 0.15, -0.1);
@@ -342,6 +508,22 @@ export class LinkModelGenerator {
     const handL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.12), skinMat);
     handL.position.set(0, -0.12, -0.36);
     armL.add(handL);
+
+    // First Person Shield (raises into view on block)
+    const fpShieldGroup = new THREE.Group();
+    fpShieldGroup.position.set(0.05, -0.05, -0.28);
+    fpShieldGroup.rotation.set(0.2, 0.3, -0.15);
+
+    const fpPlate = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.68, 0.04), fpShieldMat);
+    fpShieldGroup.add(fpPlate);
+
+    const fpRim = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.72, 0.03), fpRimMat);
+    fpRim.position.z = -0.01;
+    fpShieldGroup.add(fpRim);
+
+    fpShieldGroup.visible = false; // Hidden until shield is raised
+    armL.add(fpShieldGroup);
+
     fpGroup.add(armL);
 
     // 2. Right Arm (King Rauru's Glowing Zonai Arm with Master Sword!)
@@ -393,14 +575,41 @@ export class LinkModelGenerator {
     armR.add(swordGroup);
     fpGroup.add(armR);
 
+    // 3. First Person Paraglider View Canopy & Handles overhead
+    const fpGlider = new THREE.Group();
+    fpGlider.position.set(0, 0.48, -0.35);
+
+    const fpSailGeom = new THREE.PlaneGeometry(1.9, 0.9, 8, 4);
+    const fpSailTex = TextureGenerator.createParagliderSailTexture();
+    const fpSail = new THREE.Mesh(fpSailGeom, new THREE.MeshStandardMaterial({
+      map: fpSailTex,
+      side: THREE.DoubleSide,
+      roughness: 0.65
+    }));
+    fpSail.rotation.x = -Math.PI / 2 + 0.15;
+    fpGlider.add(fpSail);
+
+    const fpBar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.025, 1.8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.8 })
+    );
+    fpBar.rotation.z = Math.PI / 2;
+    fpGlider.add(fpBar);
+
+    fpGlider.visible = false; // Visible only when gliding
+    fpGroup.add(fpGlider);
+
     fpGroup.userData = {
       isLinkFP: true,
       armL,
       armR,
       sword: swordGroup,
+      shieldFP: fpShieldGroup,
+      paragliderFP: fpGlider,
       runeRing
     };
 
     return fpGroup;
   }
 }
+

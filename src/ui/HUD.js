@@ -319,9 +319,10 @@ export class HUD {
         <div id="day-counter" class="day-title">DAY 1 - MORNING</div>
         <div id="growth-stage-title" class="stage-subtitle">🌱 Baby Sprout Evermean</div>
         <!-- Active Room Pill Indicator -->
-        <div id="hud-room-indicator" style="display: none; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.85); border: 1.5px solid #0284c7; border-radius: 9999px; padding: 5px 14px; font-size: 11px; font-weight: 700; color: #e0f2fe; backdrop-filter: blur(8px); cursor: pointer; pointer-events: auto; margin-top: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);" title="Click to copy Room Code & Invite Link!">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 10px #38bdf8;"></span>
-          <span>World Room: <strong id="hud-room-code-text" style="color: #38bdf8; font-family: monospace; font-size: 12px; letter-spacing: 0.8px;">GROVE-XX</strong></span>
+        <div id="hud-room-indicator" style="display: none; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.88); border: 1.5px solid #0284c7; border-radius: 9999px; padding: 5px 14px; font-size: 11px; font-weight: 700; color: #e0f2fe; backdrop-filter: blur(8px); cursor: pointer; pointer-events: auto; margin-top: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);" title="Click to copy Room Code & Invite Link!">
+          <span id="hud-room-status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 10px #38bdf8;"></span>
+          <span>Room: <strong id="hud-room-code-text" style="color: #38bdf8; font-family: monospace; font-size: 12px; letter-spacing: 0.8px;">GROVE-XX</strong></span>
+          <span id="hud-connection-status" style="font-size: 10px; color: #4ade80; background: rgba(34, 197, 94, 0.2); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(34, 197, 94, 0.4);">🟢 Connected</span>
           <span id="hud-room-copy-badge" style="background: rgba(56, 189, 248, 0.25); border: 1px solid #38bdf8; border-radius: 4px; padding: 2px 7px; font-size: 10px; color: #7dd3fc; font-weight: 800;">📋 Copy</span>
         </div>
       </div>
@@ -344,9 +345,12 @@ export class HUD {
           <div class="resource-item" id="res-item-jelly" style="color: #a7f3d0;">🧪 <span id="res-jelly">0</span> Jelly</div>
           <div class="resource-item" id="res-item-bubbul" style="color: #c084fc;">🔮 <span id="res-bubbul">0</span> Bubbul</div>
           <div class="resource-item" id="res-item-sundelion" style="color: #fde047;">🌼 <span id="res-sundelion">0</span> Sun</div>
+          <div class="resource-item" id="res-item-blessing" style="color: #6ee7b7;">🔮 <span id="res-blessing">0</span> Blessings</div>
         </div>
         <button id="btn-hud-mp" style="background: rgba(8, 51, 68, 0.85); border: 1px solid #06b6d4; color: #67e8f9; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">🌐 Online</button>
         <button id="btn-hud-acc" style="background: rgba(14, 41, 30, 0.85); border: 1px solid #10b981; color: #6ee7b7; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">🌿 Friends</button>
+        <button id="btn-hud-wiki" style="background: rgba(12, 35, 51, 0.85); border: 1px solid #38bdf8; color: #7dd3fc; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">📖 Wiki</button>
+        <button id="btn-hud-creator" style="background: rgba(38, 26, 6, 0.85); border: 1px solid #f59e0b; color: #fde047; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">💬 Creator</button>
       </div>
 
       <!-- Quest / Objectives Tracker -->
@@ -467,6 +471,7 @@ export class HUD {
       <div class="controls-hint-bar">
         <span><span class="key-badge">L-Click</span> Head-Slam</span>
         <span><span class="key-badge">R-Click</span> Special / Scythe</span>
+        <span><span class="key-badge">Z</span> Recall</span>
         <span><span class="key-badge">E</span> Ultrahand</span>
         <span><span class="key-badge">F</span> Fuse</span>
         <span><span class="key-badge">G</span> Ping</span>
@@ -474,7 +479,7 @@ export class HUD {
         <span><span class="key-badge">C</span> Camo</span>
         <span><span class="key-badge">R</span> Burrow</span>
         <span><span class="key-badge">Q</span> Acorn</span>
-        <span><span class="key-badge">Space</span> Jump / Swim</span>
+        <span><span class="key-badge">Space</span> Jump / Glide</span>
         <span><span class="key-badge">B</span> Build</span>
         <span><span class="key-badge">V</span> View</span>
         <span><span class="key-badge">Esc</span> Menu</span>
@@ -537,6 +542,22 @@ export class HUD {
       btnAcc.addEventListener('click', (e) => {
         e.stopPropagation();
         accountModal.show();
+      });
+    }
+
+    const btnWiki = document.getElementById('btn-hud-wiki');
+    if (btnWiki) {
+      btnWiki.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.openWikiModal) window.openWikiModal();
+      });
+    }
+
+    const btnCreator = document.getElementById('btn-hud-creator');
+    if (btnCreator) {
+      btnCreator.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.openCreatorModal) window.openCreatorModal();
       });
     }
 
@@ -697,6 +718,16 @@ export class HUD {
         roomIndicator.style.display = 'flex';
         const codeText = document.getElementById('hud-room-code-text');
         if (codeText) codeText.textContent = multiplayer.currentRoom;
+
+        const statusEl = document.getElementById('hud-connection-status');
+        const dotEl = document.getElementById('hud-room-status-dot');
+        if (statusEl && multiplayer.connectionStatusText) {
+          const isOnline = multiplayer.connectionState === 'online';
+          const isConnecting = multiplayer.connectionState === 'connecting';
+          statusEl.textContent = isOnline ? `🟢 ${multiplayer.connectionStatusText}` : (isConnecting ? '🟡 Connecting...' : '🟠 Mesh');
+          statusEl.style.color = isOnline ? '#4ade80' : (isConnecting ? '#fde047' : '#fb923c');
+          if (dotEl) dotEl.style.background = isOnline ? '#22c55e' : (isConnecting ? '#eab308' : '#38bdf8');
+        }
       } else {
         roomIndicator.style.display = 'none';
       }
@@ -715,6 +746,8 @@ export class HUD {
     if (resBubbul) resBubbul.textContent = player.inventory.bubbulGems || 0;
     const resSun = document.getElementById('res-sundelion');
     if (resSun) resSun.textContent = player.inventory.sundelions || 0;
+    const resBless = document.getElementById('res-blessing');
+    if (resBless) resBless.textContent = player.inventory.lightsOfBlessing || 0;
 
     // 4. Badges
     document.getElementById('disguise-badge').style.display = player.isDisguised ? 'block' : 'none';

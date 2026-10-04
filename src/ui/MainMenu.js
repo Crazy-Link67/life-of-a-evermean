@@ -185,6 +185,8 @@ export class MainMenu {
         <button id="btn-load" class="btn-menu">📂 Load Game</button>
         <button id="btn-export" class="btn-menu">📤 Export Save (.json)</button>
         <button id="btn-import" class="btn-menu">📥 Import Save (.json)</button>
+        <button id="btn-wiki" class="btn-menu" style="border-color: #38bdf8; color: #7dd3fc; background: #0c2333;">📖 Game Wikipedia & Codex</button>
+        <button id="btn-creator-connect" class="btn-menu" style="border-color: #f59e0b; color: #fde047; background: #261a06;">💬 Reviews & Meet Creator (Crazy_link67)</button>
         <button id="btn-settings" class="btn-menu">⚙️ Settings</button>
         <button id="btn-github" class="btn-menu" style="border-color: #38bdf8; color: #7dd3fc;">⭐ GitHub Repository</button>
       </div>
@@ -367,6 +369,16 @@ export class MainMenu {
     // Settings
     document.getElementById('btn-settings').addEventListener('click', () => {
       document.getElementById('modal-settings').style.display = 'flex';
+    });
+
+    // Wikipedia / Codex
+    document.getElementById('btn-wiki').addEventListener('click', () => {
+      if (this.callbacks.onWiki) this.callbacks.onWiki();
+    });
+
+    // Creator Connect (Reviews, Chat, Meeting Booking)
+    document.getElementById('btn-creator-connect').addEventListener('click', () => {
+      if (this.callbacks.onCreatorConnect) this.callbacks.onCreatorConnect();
     });
 
     // GitHub Repository Link

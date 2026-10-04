@@ -1215,7 +1215,7 @@ export class Environment {
       waterfall.position.set(isl.radius * 0.85, -fallHeight * 0.5 + 2, 0);
       waterfall.rotation.y = Math.PI / 2;
       group.add(waterfall);
-      group.userData = { waterfall, crystal, name: isl.name };
+      group.userData = { waterfall, crystal, name: isl.name, radius: isl.radius, surfaceY: isl.y + 2.5 };
 
       this.scene.add(group);
       this.skyIslands.push(group);

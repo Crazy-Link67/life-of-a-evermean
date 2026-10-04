@@ -26,6 +26,22 @@ export class MultiplayerManager {
     this.peerConnections = new Map();
     this.activeBeacons = [];
     this.colony = null;
+    this.connectionState = 'disconnected'; // 'disconnected', 'connecting', 'online', 'fallback', 'error'
+    this.connectionStatusText = 'Offline';
+    this.pingLatency = 0;
+    this.pingTimer = 0;
+    this.onConnectionChangeCallbacks = [];
+  }
+
+  setConnectionState(state, text = '') {
+    this.connectionState = state;
+    this.connectionStatusText = text;
+    this.onConnectionChangeCallbacks.forEach((cb) => cb(state, text, this.pingLatency));
+  }
+
+  onConnectionChange(cb) {
+    this.onConnectionChangeCallbacks.push(cb);
+    cb(this.connectionState, this.connectionStatusText, this.pingLatency);
   }
 
   init(scene, terrain, engine, player, colony = null) {
@@ -146,17 +162,22 @@ export class MultiplayerManager {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
           ]
         }
       };
 
       if (this.isHost) {
         try {
+          this.setConnectionState('connecting', `Starting Host for Room ${this.currentRoom}...`);
           this.peer = new window.Peer(hostPeerId, peerConfig);
 
           this.peer.on('open', (id) => {
             console.log('👑 PeerJS Host Online with ID:', id);
+            this.setConnectionState('online', `Host Online (Room: ${this.currentRoom})`);
             if (window.showGameNotification) {
               window.showGameNotification(`🌐 Online WebRTC Server Active! Room: ${this.currentRoom}`);
             }
@@ -166,6 +187,7 @@ export class MultiplayerManager {
             conn.on('open', () => {
               console.log('🔗 Client connected to host via WebRTC:', conn.peer);
               this.peerConnections.set(conn.peer, conn);
+              this.setConnectionState('online', `Host Active (${this.peerConnections.size} Client${this.peerConnections.size > 1 ? 's' : ''})`);
 
               const profile = accountSystem.getProfile();
               const welcomePacket = {
@@ -187,16 +209,17 @@ export class MultiplayerManager {
 
             conn.on('data', (data) => {
               this.handleNetworkMessage(data);
-              // Relay to all other connected clients
+              // Relay to all other connected clients for a fully connected mesh
               this.peerConnections.forEach((otherConn, otherId) => {
                 if (otherId !== conn.peer && otherConn.open) {
-                  otherConn.send(data);
+                  try { otherConn.send(data); } catch (e) {}
                 }
               });
             });
 
             conn.on('close', () => {
               this.peerConnections.delete(conn.peer);
+              this.setConnectionState('online', `Host Active (${this.peerConnections.size} Client${this.peerConnections.size > 1 ? 's' : ''})`);
             });
             conn.on('error', () => {
               this.peerConnections.delete(conn.peer);
@@ -205,6 +228,16 @@ export class MultiplayerManager {
 
           this.peer.on('error', (err) => {
             console.warn('PeerJS Host Notice:', err);
+            // If the room ID is already taken, another host is active for this room! Auto-switch to join as client.
+            if (err.type === 'unavailable-id') {
+              console.log('Room host ID already claimed! Auto-joining as client instead...');
+              this.isHost = false;
+              try { this.peer.destroy(); } catch (e) {}
+              this.peer = null;
+              this.setupWebRTC();
+              return;
+            }
+            this.setConnectionState('error', `Host notice: ${err.type || 'network issue'}`);
           });
         } catch (e) {
           console.warn('PeerJS init error:', e);
@@ -212,49 +245,75 @@ export class MultiplayerManager {
       } else {
         // Client joining room
         try {
+          this.setConnectionState('connecting', `Connecting to Room ${this.currentRoom}...`);
           this.peer = new window.Peer(peerConfig);
 
           this.peer.on('open', (myPeerId) => {
             console.log('🚀 PeerJS Client Online with ID:', myPeerId);
-            const hostConn = this.peer.connect(hostPeerId, { reliable: true });
 
-            hostConn.on('open', () => {
-              console.log('✅ Connected to Host via WebRTC!');
-              this.peerConnections.set(hostPeerId, hostConn);
+            let retryCount = 0;
+            const maxRetries = 8;
 
-              const profile = accountSystem.getProfile();
-              const joinPacket = {
-                type: 'PLAYER_JOIN',
-                id: profile.id,
-                username: profile.username,
-                friendCode: profile.friendCode,
-                config: profile.customEvermean,
-                stage: this.localPlayer ? this.localPlayer.growthStage : 1,
-                position: this.localPlayer ? { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z } : { x: 0, y: 2, z: 0 },
-                yaw: this.localPlayer ? this.localPlayer.yaw : 0,
-                senderSessionId: this.sessionId,
-                packetId: 'pkt_' + Math.random().toString(36).substring(2, 9)
-              };
-              hostConn.send(joinPacket);
-              if (window.showGameNotification) {
-                window.showGameNotification(`🌐 Connected to Online Host for Room ${this.currentRoom}!`);
-              }
-            });
+            const connectToHost = () => {
+              if (!this.currentRoom || this.isHost) return;
+              retryCount++;
+              this.setConnectionState('connecting', `Connecting to Host (Attempt ${retryCount}/${maxRetries})...`);
 
-            hostConn.on('data', (data) => {
-              this.handleNetworkMessage(data);
-            });
+              const hostConn = this.peer.connect(hostPeerId, { reliable: true });
 
-            hostConn.on('close', () => {
-              this.peerConnections.delete(hostPeerId);
-            });
-            hostConn.on('error', () => {
-              this.peerConnections.delete(hostPeerId);
-            });
+              hostConn.on('open', () => {
+                console.log('✅ Connected to Host via WebRTC!');
+                this.peerConnections.set(hostPeerId, hostConn);
+                this.setConnectionState('online', `Connected to Room ${this.currentRoom}`);
+
+                const profile = accountSystem.getProfile();
+                const joinPacket = {
+                  type: 'PLAYER_JOIN',
+                  id: profile.id,
+                  username: profile.username,
+                  friendCode: profile.friendCode,
+                  config: profile.customEvermean,
+                  stage: this.localPlayer ? this.localPlayer.growthStage : 1,
+                  position: this.localPlayer ? { x: this.localPlayer.position.x, y: this.localPlayer.position.y, z: this.localPlayer.position.z } : { x: 0, y: 2, z: 0 },
+                  yaw: this.localPlayer ? this.localPlayer.yaw : 0,
+                  senderSessionId: this.sessionId,
+                  packetId: 'pkt_' + Math.random().toString(36).substring(2, 9)
+                };
+                hostConn.send(joinPacket);
+                if (window.showGameNotification) {
+                  window.showGameNotification(`🌐 Connected to Online Host for Room ${this.currentRoom}!`);
+                }
+              });
+
+              hostConn.on('data', (data) => {
+                this.handleNetworkMessage(data);
+              });
+
+              hostConn.on('close', () => {
+                this.peerConnections.delete(hostPeerId);
+                if (this.currentRoom && !this.isHost) {
+                  this.setConnectionState('connecting', 'Host connection lost. Reconnecting...');
+                  setTimeout(connectToHost, 2500);
+                }
+              });
+
+              hostConn.on('error', (err) => {
+                console.warn('Host connection attempt error:', err);
+                this.peerConnections.delete(hostPeerId);
+                if (retryCount < maxRetries && this.currentRoom && !this.isHost) {
+                  setTimeout(connectToHost, 2000);
+                } else if (retryCount >= maxRetries) {
+                  this.setConnectionState('fallback', 'Host unreachable. Running in Local Grove.');
+                }
+              });
+            };
+
+            connectToHost();
           });
 
           this.peer.on('error', (err) => {
             console.warn('PeerJS Client Notice:', err);
+            this.setConnectionState('error', `Client notice: ${err.type || 'network issue'}`);
           });
         } catch (e) {
           console.warn('PeerJS client error:', e);
@@ -410,6 +469,24 @@ export class MultiplayerManager {
         if (this.colony && data.position) {
           this.colony.buildStructure(data.typeId, new THREE.Vector3(data.position.x, data.position.y, data.position.z), null, true);
           if (this.engine) this.engine.spawnParticles(new THREE.Vector3(data.position.x, data.position.y, data.position.z), 25, 0x10b981, 4, 0.2);
+        }
+        break;
+      }
+
+      case 'PING': {
+        this.broadcast({
+          type: 'PONG',
+          originalSendTime: data.sendTime,
+          targetSessionId: data.senderSessionId
+        });
+        break;
+      }
+
+      case 'PONG': {
+        if (data.targetSessionId === this.sessionId && data.originalSendTime) {
+          this.pingLatency = Math.max(1, Date.now() - data.originalSendTime);
+          const peerCount = this.peerConnections.size;
+          this.setConnectionState('online', `Online (${peerCount} Peer${peerCount > 1 ? 's' : ''}, ${this.pingLatency}ms)`);
         }
         break;
       }
@@ -833,6 +910,16 @@ export class MultiplayerManager {
         isBurrowed: !!this.localPlayer.isRootBurrowed,
         hp: this.localPlayer.barkHp || 100,
         fusedType: this.localPlayer.fusedItem ? this.localPlayer.fusedItem.type : null
+      });
+    }
+
+    // Measure live WebRTC ping latency every 2.5s
+    this.pingTimer += delta;
+    if (this.pingTimer > 2.5 && this.peerConnections.size > 0) {
+      this.pingTimer = 0;
+      this.broadcast({
+        type: 'PING',
+        sendTime: Date.now()
       });
     }
 

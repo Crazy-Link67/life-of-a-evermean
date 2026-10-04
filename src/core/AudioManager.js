@@ -801,6 +801,117 @@ export class AudioManager {
       osc.stop(t + noteDelay + 1.5);
     }
   }
+
+  // Zelda TOTK Recall Clock Tick
+  playRecallTick() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(880, t);
+    osc.frequency.exponentialRampToValueAtTime(440, t + 0.04);
+
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.06);
+  }
+
+  // Recall Golden Time-Reverse Hum
+  startRecallHum() {
+    if (!this.ctx || this.recallOsc) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    this.recallOsc = this.ctx.createOscillator();
+    this.recallGain = this.ctx.createGain();
+
+    this.recallOsc.type = 'sawtooth';
+    this.recallOsc.frequency.setValueAtTime(220, t);
+    this.recallOsc.frequency.linearRampToValueAtTime(280, t + 0.3);
+
+    this.recallGain.gain.setValueAtTime(0.001, t);
+    this.recallGain.gain.linearRampToValueAtTime(0.16, t + 0.2);
+
+    this.recallOsc.connect(this.recallGain);
+    this.recallGain.connect(this.sfxGain);
+    this.recallOsc.start(t);
+  }
+
+  stopRecallHum() {
+    if (!this.ctx || !this.recallOsc) return;
+    const t = this.ctx.currentTime;
+    if (this.recallGain) {
+      this.recallGain.gain.linearRampToValueAtTime(0.001, t + 0.1);
+    }
+    setTimeout(() => {
+      try {
+        if (this.recallOsc) {
+          this.recallOsc.stop();
+          this.recallOsc.disconnect();
+          this.recallOsc = null;
+        }
+      } catch (e) {}
+    }, 120);
+  }
+
+  // Paraglider / Leaf Canopy deploy whoosh
+  playGliderDeploy() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    const noiseBuffer = this.createNoiseBuffer(0.35);
+    if (noiseBuffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(600, t);
+      filter.frequency.linearRampToValueAtTime(1400, t + 0.12);
+      filter.frequency.exponentialRampToValueAtTime(200, t + 0.35);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+      noise.start(t);
+    }
+  }
+
+  // Ancient Zonai Shrine Completion Chime & Divine Flourish
+  playShrineChime() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Harmonic bell chime chord
+    const freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    freqs.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.12);
+
+      gain.gain.setValueAtTime(0.2, t + idx * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.12 + 2.4);
+
+      osc.connect(gain);
+      gain.connect(this.musicGain);
+      osc.start(t + idx * 0.12);
+      osc.stop(t + idx * 0.12 + 2.5);
+    });
+  }
 }
 
 export const audio = new AudioManager();

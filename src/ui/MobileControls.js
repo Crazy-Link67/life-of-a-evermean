@@ -195,6 +195,16 @@ export class MobileControls {
       <!-- 4. Bottom Right Action Cluster -->
       <div class="action-cluster">
         <div class="action-row">
+          <!-- Recall Time Reversal -->
+          <button id="btn-touch-recall" class="btn-touch btn-action-med" style="border-color: #facc15; color: #fde047;">
+            <span class="btn-touch-icon">⏳</span>
+            <span class="btn-touch-label">Recall</span>
+          </button>
+          <!-- Ultrahand Grip -->
+          <button id="btn-touch-ultra" class="btn-touch btn-action-med" style="border-color: #10b981; color: #a7f3d0;">
+            <span class="btn-touch-icon">🧲</span>
+            <span class="btn-touch-label">Ultra</span>
+          </button>
           <!-- Camouflage Disguise -->
           <button id="btn-touch-camo" class="btn-touch btn-action-med">
             <span class="btn-touch-icon">🍃</span>
@@ -213,7 +223,7 @@ export class MobileControls {
             <span class="btn-touch-icon">🌰</span>
             <span class="btn-touch-label">Sling</span>
           </button>
-          <!-- Jump / Paddle -->
+          <!-- Jump / Paddle / Glide -->
           <button id="btn-touch-jump" class="btn-touch btn-action-med">
             <span class="btn-touch-icon">🦘</span>
             <span class="btn-touch-label">Jump</span>
@@ -409,6 +419,16 @@ export class MobileControls {
     // 🌰 Acorn Slingshot
     attachButton('btn-touch-acorn', () => {
       input.triggerAction('KeyQ');
+    });
+
+    // ⏳ TOTK Recall Time Reversal
+    attachButton('btn-touch-recall', () => {
+      input.triggerAction('KeyZ');
+    });
+
+    // 🧲 Ultrahand
+    attachButton('btn-touch-ultra', () => {
+      input.triggerAction('KeyE');
     });
 
     // 🍃 Camouflage Disguise

@@ -21,6 +21,10 @@ import { mainMenu } from './ui/MainMenu.js';
 import { mobileControls } from './ui/MobileControls.js';
 import { accountModal } from './ui/AccountModal.js';
 import { multiplayerLobby } from './ui/MultiplayerLobbyModal.js';
+import { ShrineSystem } from './world/ShrineSystem.js';
+import { SplashScreen } from './ui/SplashScreen.js';
+import { WikiModal } from './ui/WikiModal.js';
+import { CreatorConnectModal } from './ui/CreatorConnectModal.js';
 
 class Game {
   constructor() {
@@ -71,6 +75,13 @@ class Game {
     this.terrain = terrain;
     this.environment = environment;
     this.colony = colony;
+
+    // Initialize Ancient Zonai Shrines & Codex/Creator Modals
+    this.shrineSystem = new ShrineSystem(engine.scene, engine, terrain);
+    this.wikiModal = new WikiModal();
+    this.creatorConnectModal = new CreatorConnectModal();
+    window.openWikiModal = () => this.wikiModal.show();
+    window.openCreatorModal = () => this.creatorConnectModal.show();
     window.game = this;
 
     multiplayer.onRoomChange((roomCode, mode) => {
@@ -109,6 +120,12 @@ class Game {
       onAccount: () => {
         accountModal.show();
       },
+      onWiki: () => {
+        this.wikiModal.show();
+      },
+      onCreatorConnect: () => {
+        this.creatorConnectModal.show();
+      },
       onSaveSlot: (slotId) => {
         this.saveCurrentGame(slotId);
       },
@@ -129,8 +146,10 @@ class Game {
     // 5. Setup Input Action Callbacks
     this.setupActions();
 
-    // 6. Check if saves exist, show Main Menu
-    mainMenu.show();
+    // 6. Show Startup Loading Screen ("Crazy_link67 Productions" with animated Niffler & acknowledgements)
+    new SplashScreen(() => {
+      mainMenu.show();
+    });
 
     // 7. Start Lifecycle Loop
     this.loop();
@@ -200,9 +219,18 @@ class Game {
       player.launchProjectile(villagers);
     });
 
-    // E: Ultrahand Magnetic Grip / Release
+    // Z: TOTK Recall Time-Reversal Ability
+    input.onAction('KeyZ', () => {
+      if (!this.isGameRunning || this.isPaused) return;
+      player.toggleRecall(environment);
+    });
+
+    // E: Ultrahand Magnetic Grip / Release & Shrine/Goddess Interaction
     input.onAction('KeyE', () => {
       if (!this.isGameRunning || this.isPaused || buildMenu.isOpen) return;
+      if (this.shrineSystem && this.shrineSystem.interact(player)) {
+        return;
+      }
       player.toggleUltrahand(environment);
     });
 
@@ -384,6 +412,11 @@ class Game {
       // 7. Engine Effects & HUD
       engine.update(delta);
       hud.update(player, dayNight);
+
+      // 8. Ancient Zonai Shrines & Goddess Statues
+      if (this.shrineSystem) {
+        this.shrineSystem.update(delta, player);
+      }
 
       // 8. Campaign story progress checks
       if (campaign.isActive) {

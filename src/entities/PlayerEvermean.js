@@ -51,11 +51,14 @@ export class PlayerEvermean {
     this.rightArmRecoil = 0;
     this.bodyRoll = 0;
     this.bodyPitch = 0;
+    this.launchCooldown = 0;
+    this.walkCycle = 0;
 
     // 3D Models
     this.thirdPersonModel = null;
     this.firstPersonModel = null;
     this.gliderMesh = null;
+    this.recallTrajectoryLine = null;
     this.scene = null;
     this.camera = null;
     this.terrain = null;
@@ -337,11 +340,36 @@ export class PlayerEvermean {
     }
   }
 
+  // Render 3D golden chronomancy motion path
+  renderRecallTrajectory(obj) {
+    this.clearRecallTrajectory();
+    if (!obj || !obj.userData.history || obj.userData.history.length < 2) return;
+
+    const points = obj.userData.history.map(h => h.pos);
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const mat = new THREE.LineBasicMaterial({
+      color: 0xfacc15,
+      linewidth: 3,
+      transparent: true,
+      opacity: 0.95
+    });
+    this.recallTrajectoryLine = new THREE.Line(geom, mat);
+    this.scene.add(this.recallTrajectoryLine);
+  }
+
+  clearRecallTrajectory() {
+    if (this.recallTrajectoryLine) {
+      this.scene.remove(this.recallTrajectoryLine);
+      this.recallTrajectoryLine.geometry?.dispose();
+      this.recallTrajectoryLine.material?.dispose();
+      this.recallTrajectoryLine = null;
+    }
+  }
+
   // Zelda TOTK Recall Ability (Key Z)
   toggleRecall(environment) {
-    if (!environment || !environment.fusableObjects) return;
-
     if (this.isRecallActive && this.recalledObject) {
+      this.clearRecallTrajectory();
       this.recalledObject.userData.isRecalling = false;
       this.recalledObject = null;
       this.isRecallActive = false;
@@ -352,19 +380,26 @@ export class PlayerEvermean {
       return;
     }
 
-    let closestObj = null;
-    let closestDist = 18.0;
+    // Collect all candidate objects from environment & 3D dungeon chambers
+    const candidates = [];
+    if (environment && environment.fusableObjects) candidates.push(...environment.fusableObjects);
+    if (window.game && window.game.shrineSystem?.activeDungeon?.puzzleProps) {
+      candidates.push(...window.game.shrineSystem.activeDungeon.puzzleProps);
+    }
 
-    for (const obj of environment.fusableObjects) {
+    let closestObj = null;
+    let closestDist = 20.0;
+
+    for (const obj of candidates) {
       const dist = obj.position.distanceTo(this.position);
-      if (dist < closestDist && obj.userData.history && obj.userData.history.length > 5) {
+      if (dist < closestDist && obj.userData.history && obj.userData.history.length > 3) {
         closestDist = dist;
         closestObj = obj;
       }
     }
 
     if (!closestObj) {
-      for (const obj of environment.fusableObjects) {
+      for (const obj of candidates) {
         const dist = obj.position.distanceTo(this.position);
         if (dist < closestDist) {
           closestDist = dist;
@@ -375,7 +410,7 @@ export class PlayerEvermean {
 
     if (!closestObj) {
       if (window.showGameNotification) {
-        window.showGameNotification('❓ No movable object in range to Recall! (Stand near a boulder or dropped prop)');
+        window.showGameNotification('❓ Stand near a movable boulder or prop to activate Recall!');
       }
       return;
     }
@@ -384,15 +419,17 @@ export class PlayerEvermean {
     this.recalledObject = closestObj;
     closestObj.userData.isRecalling = true;
 
+    this.renderRecallTrajectory(closestObj);
+
     audio.startRecallHum?.();
     audio.playRecallTick?.();
     if (this.engine) {
-      this.engine.spawnCosmicBurst(closestObj.position, 40);
-      this.engine.applyScreenShake(0.3);
+      this.engine.spawnCosmicBurst(closestObj.position, 45);
+      this.engine.applyScreenShake(0.35);
     }
 
     if (window.showGameNotification) {
-      window.showGameNotification(`⏳ RECALL: Rewinding ${closestObj.userData.name || 'Object'} through time!`);
+      window.showGameNotification(`⏳ RECALL ACTIVATED: Rewinding ${closestObj.userData.name || 'Object'} through time!`);
     }
   }
 
@@ -1020,6 +1057,14 @@ export class PlayerEvermean {
       }
     }
 
+    // Check if player is inside an ancient 3D Zonai Dungeon Chamber
+    if (window.game && window.game.shrineSystem) {
+      const dFloor = window.game.shrineSystem.getDungeonFloor(this.position.x, this.position.y, this.position.z);
+      if (dFloor !== null) {
+        effectiveGroundHeight = dFloor;
+      }
+    }
+
     if (this.isSwimming) {
       // Buoyancy: float on water surface (y = 0.0)
       const targetY = 0.1;
@@ -1069,20 +1114,31 @@ export class PlayerEvermean {
       }
     }
 
-    // Check Zonai Boost Pads (Ascend / High sky launch)
-    if (environment && environment.zonaiPads) {
+    // Check Zonai Boost Pads (Ascend / High sky launch) - 100% Reliable 2D Horizontal & Foot-Level Detection
+    this.launchCooldown = Math.max(0, (this.launchCooldown || 0) - delta);
+    if (this.launchCooldown <= 0 && environment && environment.zonaiPads) {
+      const treeEyeHeight = 1.1 + (this.growthStage - 1) * 0.55;
+      const footY = this.position.y - treeEyeHeight;
+
       for (const pad of environment.zonaiPads) {
-        if (pad.position.distanceTo(this.position) < 2.5 && (this.isGrounded || this.position.y < pad.position.y + 1.5)) {
-          this.velocity.y = 62.0; // Powerful catapult to reach Great Sky Islands (Y=82 to Y=92)
+        const dx = this.position.x - pad.position.x;
+        const dz = this.position.z - pad.position.z;
+        const distH = Math.hypot(dx, dz);
+        const padRadius = pad.userData?.radius || 2.8;
+
+        if (distH <= padRadius && Math.abs(footY - pad.position.y) < 2.5) {
+          this.velocity.y = 68.0; // High sky launch to soar above Great Sky Islands!
           this.isGrounded = false;
+          this.launchCooldown = 0.8;
           if (this.isGliding) {
             this.isGliding = false;
             this.detachGliderMesh();
           }
           audio.playZonaiBoost?.();
-          this.engine.spawnShockwave(pad.position, 6.0, 0x10b981);
-          this.engine.spawnParticles(pad.position, 60, 0x34d399, 14, 0.25);
-          this.engine.applyScreenShake(0.5);
+          audio.playCosmicSlam?.();
+          this.engine.spawnShockwave(pad.position, 7.5, 0x10b981);
+          this.engine.spawnParticles(pad.position, 75, 0x34d399, 16, 0.3);
+          this.engine.applyScreenShake(0.65);
           if (window.showGameNotification) {
             window.showGameNotification('🚀 ZONAI BOOST PAD LAUNCH! Catapulted into the Great Sky Islands! (Hold Space to Glide)');
           }
@@ -1092,48 +1148,70 @@ export class PlayerEvermean {
     }
 
     // Zelda TOTK Recall System: Rewind loop and motion trail recorder
-    if (environment && environment.fusableObjects) {
-      for (const obj of environment.fusableObjects) {
-        if (!obj.userData.history) {
-          obj.userData.history = [];
-        }
+    const allRecallables = [];
+    if (environment && environment.fusableObjects) allRecallables.push(...environment.fusableObjects);
+    if (window.game && window.game.shrineSystem?.activeDungeon?.puzzleProps) {
+      allRecallables.push(...window.game.shrineSystem.activeDungeon.puzzleProps);
+    }
 
-        if (obj.userData.isRecalling) {
-          // Rewind object along its history path
-          if (obj.userData.history.length > 0) {
-            const prev = obj.userData.history.pop();
-            obj.position.copy(prev.pos);
-            if (prev.rot) obj.rotation.copy(prev.rot);
+    for (const obj of allRecallables) {
+      if (!obj.userData.history) {
+        obj.userData.history = [];
+      }
 
-            // Golden reverse gear particles & ticking sound
-            if (this.engine && Math.random() < 0.35) {
-              this.engine.spawnParticles(obj.position, 2, 0xfacc15, 1.0, 0.08);
-            }
-          } else {
-            // Finished rewinding
-            obj.userData.isRecalling = false;
-            if (this.recalledObject === obj) {
-              this.recalledObject = null;
-              this.isRecallActive = false;
-              audio.stopRecallHum?.();
-              if (window.showGameNotification) {
-                window.showGameNotification('⏳ Recall finished rewinding object!');
-              }
-            }
+      if (obj.userData.isRecalling) {
+        // Rewind object along its history path
+        if (obj.userData.history.length > 0) {
+          const prev = obj.userData.history.pop();
+          const deltaPos = prev.pos.clone().sub(obj.position);
+          obj.position.copy(prev.pos);
+          if (prev.rot) obj.rotation.copy(prev.rot);
+
+          // Update visible golden trajectory line
+          if (this.recallTrajectoryLine && obj.userData.history.length > 1) {
+            const points = obj.userData.history.map(h => h.pos);
+            this.recallTrajectoryLine.geometry?.setFromPoints(points);
+          }
+
+          // Check if player is standing on or near this object: RIDE THE OBJECT!
+          const treeEyeHeight = 1.1 + (this.growthStage - 1) * 0.55;
+          const footY = this.position.y - treeEyeHeight;
+          const distH = Math.hypot(this.position.x - obj.position.x, this.position.z - obj.position.z);
+          if (distH < 3.2 && footY >= obj.position.y - 0.6 && footY <= obj.position.y + 3.0) {
+            this.position.add(deltaPos);
+            this.velocity.y = 0;
+            this.isGrounded = true;
+          }
+
+          // Golden reverse gear particles & ticking sound
+          if (this.engine && Math.random() < 0.4) {
+            this.engine.spawnParticles(obj.position, 2, 0xfacc15, 1.2, 0.08);
           }
         } else {
-          // Push current state to history buffer (cap at 240 frames ~ 5-6 seconds of history)
-          if (!obj.userData.recordTimer) obj.userData.recordTimer = 0;
-          obj.userData.recordTimer += delta;
-          if (obj.userData.recordTimer > 0.04) {
-            obj.userData.recordTimer = 0;
-            obj.userData.history.push({
-              pos: obj.position.clone(),
-              rot: obj.rotation.clone()
-            });
-            if (obj.userData.history.length > 200) {
-              obj.userData.history.shift();
+          // Finished rewinding
+          obj.userData.isRecalling = false;
+          if (this.recalledObject === obj) {
+            this.clearRecallTrajectory();
+            this.recalledObject = null;
+            this.isRecallActive = false;
+            audio.stopRecallHum?.();
+            if (window.showGameNotification) {
+              window.showGameNotification('⏳ Recall finished rewinding object!');
             }
+          }
+        }
+      } else {
+        // Push current state to history buffer (cap at 240 frames ~ 5-6 seconds of history)
+        if (!obj.userData.recordTimer) obj.userData.recordTimer = 0;
+        obj.userData.recordTimer += delta;
+        if (obj.userData.recordTimer > 0.04) {
+          obj.userData.recordTimer = 0;
+          obj.userData.history.push({
+            pos: obj.position.clone(),
+            rot: obj.rotation.clone()
+          });
+          if (obj.userData.history.length > 200) {
+            obj.userData.history.shift();
           }
         }
       }
@@ -1239,27 +1317,92 @@ export class PlayerEvermean {
     this.checkEvolution(dayNight.day);
 
     // 7. Update 3D Model Positions and Camera
+    // 7. Update 3D Model Positions, Procedural Kinematics & Camera
     if (this.thirdPersonModel) {
       this.thirdPersonModel.position.copy(this.position);
-      this.thirdPersonModel.position.y -= (1.1 + (this.growthStage - 1) * 0.55); // Align feet with ground
-      this.thirdPersonModel.rotation.y = this.yaw;
+      const baseFeetY = 1.1 + (this.growthStage - 1) * 0.55;
+      this.thirdPersonModel.position.y -= baseFeetY;
 
       const isMoving = input.isKeyDown('KeyW') || input.isKeyDown('KeyS') || input.isKeyDown('KeyA') || input.isKeyDown('KeyD');
-      // Realistic idle breathing sway when standing still
+      const isSprinting = input.isKeyDown('ShiftLeft') && this.photosynthesis > 4 && !this.isExhausted;
+
+      if (isMoving && this.isGrounded) {
+        this.walkCycle = (this.walkCycle || 0) + delta * (isSprinting ? 9.5 : 5.8);
+      }
+
+      // Natural idle breathing sway
       const breathSway = !isMoving ? Math.sin(Date.now() * 0.0022) * 0.025 : 0;
       this.thirdPersonModel.rotation.z = this.bodyRoll;
       this.thirdPersonModel.rotation.x = this.bodyPitch + breathSway;
 
-      // Animate root legs if moving
+      // Vertical stride bobbing & hip yaw sway
+      const strideBob = (isMoving && this.isGrounded) ? Math.abs(Math.sin(this.walkCycle)) * (isSprinting ? 0.12 : 0.06) : 0;
+      this.thirdPersonModel.position.y += strideBob;
+
+      const hipSway = (isMoving && this.isGrounded) ? Math.sin(this.walkCycle * 0.5) * (isSprinting ? 0.08 : 0.04) : 0;
+      this.thirdPersonModel.rotation.y = this.yaw + hipSway;
+
+      // Realistic Procedural Root Leg Walking Gait
       if (this.thirdPersonModel.userData.legs) {
+        const heightMult = 1.0 + (this.growthStage - 1) * 0.35;
         this.thirdPersonModel.userData.legs.forEach((leg, lIdx) => {
-          leg.rotation.x = isMoving ? Math.sin(Date.now() * 0.015 + lIdx) * 0.4 : 0;
+          if (!this.isGrounded) {
+            if (this.isGliding) {
+              // Gliding: legs stream back into the wind
+              leg.rotation.x = THREE.MathUtils.lerp(leg.rotation.x, -0.65, delta * 8);
+              leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, (lIdx % 2 === 0 ? 0.22 : -0.22), delta * 8);
+              leg.position.y = THREE.MathUtils.lerp(leg.position.y, 0.6 * heightMult, delta * 8);
+            } else {
+              // Jump / falling: roots tuck up under trunk
+              leg.rotation.x = THREE.MathUtils.lerp(leg.rotation.x, -0.35, delta * 8);
+              leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, 0, delta * 8);
+              leg.position.y = THREE.MathUtils.lerp(leg.position.y, 0.6 * heightMult + 0.15, delta * 8);
+            }
+          } else if (isMoving) {
+            // Alternating diagonal quadruped/hexapod root stride
+            const phase = (lIdx % 2 === 0) ? 0 : Math.PI;
+            const cycle = this.walkCycle + phase;
+            const strideX = Math.sin(cycle);
+            const liftY = Math.max(0, Math.cos(cycle));
+
+            leg.rotation.x = strideX * (isSprinting ? 0.65 : 0.42);
+            leg.rotation.z = Math.sin(cycle * 0.5) * 0.08;
+            leg.position.y = 0.6 * heightMult + liftY * (isSprinting ? 0.22 : 0.12);
+          } else {
+            // Idle stance
+            leg.rotation.x = THREE.MathUtils.lerp(leg.rotation.x, 0, delta * 8);
+            leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, 0, delta * 8);
+            leg.position.y = THREE.MathUtils.lerp(leg.position.y, 0.6 * heightMult, delta * 8);
+          }
         });
       }
 
-      // Head-slam tilt on model
+      // Realistic Head-Slam Attack Tilt: wind-up recoil, explosive down-slam, ground impact squash
       if (this.thirdPersonModel.userData.trunkMesh) {
+        let slamTilt = 0;
+        if (this.isAttacking) {
+          if (this.attackTimer > 0.42) {
+            slamTilt = -0.38; // Wind-up trunk arch
+          } else if (this.attackTimer > 0.12) {
+            slamTilt = 1.15; // Ground impact slam
+          } else {
+            slamTilt = 0.0; // Recovery
+          }
+        }
+        this.headSlamTilt = THREE.MathUtils.lerp(this.headSlamTilt, slamTilt, delta * 20);
         this.thirdPersonModel.userData.trunkMesh.rotation.x = this.headSlamTilt;
+      }
+
+      // Mantis Scythe Arms Animation
+      if (this.thirdPersonModel.userData.scythes) {
+        const scythes = this.thirdPersonModel.userData.scythes;
+        if (this.isAttacking) {
+          scythes.rotation.x = this.headSlamTilt * 1.3;
+        } else if (isMoving && this.isGrounded) {
+          scythes.rotation.x = Math.sin(this.walkCycle) * 0.25;
+        } else {
+          scythes.rotation.x = THREE.MathUtils.lerp(scythes.rotation.x, 0, delta * 8);
+        }
       }
     }
 

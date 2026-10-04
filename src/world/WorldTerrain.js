@@ -13,50 +13,65 @@ export class WorldTerrain {
     this.waveTimer = 0;
   }
 
-  // Smooth pseudo-noise terrain height function
+  // Realistic multi-octave fractal terrain height function with natural erosion & landmark basins
   getHeight(x, z) {
-    // 1. Base rolling hills
-    let h = Math.sin(x * 0.015) * Math.cos(z * 0.015) * 6.0;
-    h += Math.sin(x * 0.04 + 1.2) * Math.cos(z * 0.04 + 0.8) * 2.8;
-    h += Math.sin((x + z) * 0.08) * 1.0;
+    // 1. Continental macro swell & mountain knolls (low freq, high amplitude)
+    let h = Math.sin(x * 0.009 + 0.4) * Math.cos(z * 0.008 + 0.6) * 8.5;
 
-    // 2. Winding River Channel: cuts through x ~= sin(z * 0.03) * 25
-    const riverCenter = Math.sin(z * 0.025) * 28.0;
+    // 2. Rolling hills and undulating forest valleys (mid freq)
+    h += Math.sin(x * 0.022 + 1.4) * Math.cos(z * 0.019 + 0.8) * 4.2;
+
+    // 3. Craggy rock ridges & mountain bluffs (ridge noise: 1 - |sin|)
+    const rNoise = 1.0 - Math.abs(Math.sin(x * 0.038 + z * 0.024));
+    h += (rNoise * rNoise) * 3.6;
+
+    // 4. Subtle micro ground loam undulations
+    h += Math.sin((x * 0.08 + z * 0.06)) * 0.75;
+    h += Math.cos(x * 0.12 - z * 0.1) * 0.35;
+
+    // 5. Winding River Channel: cuts smoothly through x ~= sin(z * 0.025) * 28
+    const riverCenter = Math.sin(z * 0.024) * 28.0;
     const distToRiver = Math.abs(x - riverCenter);
-    const riverWidth = 14.0;
+    const riverWidth = 14.5;
 
     if (distToRiver < riverWidth) {
       const riverFactor = Math.cos((distToRiver / riverWidth) * (Math.PI / 2));
-      h -= riverFactor * 5.5; // Dig riverbed below water level
+      h -= (riverFactor * riverFactor) * 5.8; // Smooth parabolic river basin below water level
     }
 
-    // 3. Central Lake at z ~ 60, x ~ 0
+    // 6. Central Sylvan Lake Basin at z ~ 65, x ~ 0
     const lakeDx = x;
     const lakeDz = z - 65;
     const distToLake = Math.sqrt(lakeDx * lakeDx + lakeDz * lakeDz);
-    const lakeRadius = 38.0;
+    const lakeRadius = 40.0;
     if (distToLake < lakeRadius) {
       const lakeFactor = Math.cos((distToLake / lakeRadius) * (Math.PI / 2));
-      h -= lakeFactor * 6.5; // Deep lake basin
+      h -= (lakeFactor * lakeFactor) * 6.8; // Deep lake basin
     }
 
-    // 4. Woodcutter Goblin Outpost clearing at x: 65, z: -40
+    // 7. Woodland Clearing & Spawn Haven at x: 0, z: 10
+    const distToSpawn = Math.hypot(x, z - 10);
+    if (distToSpawn < 22) {
+      h = THREE.MathUtils.lerp(1.2, h, distToSpawn / 22);
+    }
+
+    // 8. Woodcutter Goblin Outpost clearing at x: 65, z: -40
     const distToCamp = Math.hypot(x - 65, z - (-40));
-    if (distToCamp < 25) {
-      h = h * 0.3 + 1.5; // Flatten outpost ground
+    if (distToCamp < 26) {
+      h = h * 0.25 + 1.8; // Flatten outpost ground
     }
 
-    // 5. Beaverfolk Stilt Village riverbank at x: -28, z: 25
+    // 9. Beaverfolk Stilt Village riverbank at x: -28, z: 25
     const distToBeaver = Math.hypot(x - (-28), z - 25);
-    if (distToBeaver < 20) {
-      h = Math.max(-0.6, Math.min(1.2, h)); // Gentle river landing
+    if (distToBeaver < 22) {
+      h = Math.max(-0.5, Math.min(1.4, h)); // Gentle river landing
     }
 
-    // 6. Subterranean Root Chasm Descent at x: 75, z: 70
+    // 10. Subterranean Gloom Chasm Descent at x: 75, z: 70
     const distToChasm = Math.hypot(x - 75, z - 70);
-    if (distToChasm < 18) {
-      const chasmFactor = Math.cos((distToChasm / 18) * (Math.PI / 2));
-      h -= chasmFactor * 14.0; // Deep chasm descent into underground roots
+    if (distToChasm < 20) {
+      const chasmFactor = Math.cos((distToChasm / 20) * (Math.PI / 2));
+      h -= chasmFactor * 15.0; // Deep chasm descent into underground roots
     }
 
     return h;
@@ -72,60 +87,90 @@ export class WorldTerrain {
   }
 
   generate(scene) {
-    // 1. Terrain Mesh
+    // 1. High-Resolution Realistic Terrain Mesh
+    this.segments = 180;
     const geom = new THREE.PlaneGeometry(this.size, this.size, this.segments, this.segments);
     geom.rotateX(-Math.PI / 2);
 
     const pos = geom.attributes.position;
-    const colors = [];
-
-    const grassColor = new THREE.Color(0x3a7d34);
-    const lushColor = new THREE.Color(0x4e9c3e);
-    const dirtColor = new THREE.Color(0x735135);
-    const sandColor = new THREE.Color(0xd2b48c);
-    const stoneColor = new THREE.Color(0x696969);
-    const gloomColor = new THREE.Color(0x18050e);
-
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      const y = this.getHeight(x, z);
-      pos.setY(i, y);
+      pos.setY(i, this.getHeight(x, z));
+    }
+
+    geom.computeVertexNormals();
+
+    const normals = geom.attributes.normal;
+    const colors = [];
+
+    // Authentic Zelda: TOTK Palette
+    const meadowGrass = new THREE.Color(0x387e2b);
+    const sunnyGrass = new THREE.Color(0x56a63c);
+    const darkGrass = new THREE.Color(0x28631f);
+    const forestLoam = new THREE.Color(0x5c4632);
+    const cliffRock = new THREE.Color(0x4a4744);
+    const darkStrata = new THREE.Color(0x363330);
+    const shoreSand = new THREE.Color(0xc7ab7a);
+    const wetPebble = new THREE.Color(0x8a7758);
+    const gloomScorched = new THREE.Color(0x18040d);
+    const maliceCrimson = new THREE.Color(0x831843);
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const ny = normals.getY(i);
+      const slope = 1.0 - Math.max(0, ny); // 0 = perfectly flat, 1 = sheer cliff
 
       const distToChasm = Math.hypot(x - 75, z - 70);
-
-      // Vertex Coloring according to height and slope
       const col = new THREE.Color();
-      if (distToChasm < 16) {
-        // Scorched Gloom Chasm descent
-        col.copy(gloomColor).lerp(new THREE.Color(0x881337), (16 - distToChasm) / 16);
-      } else if (y < this.waterLevel + 0.5) {
-        // Shoreline sand
-        col.copy(sandColor).offsetHSL(0, 0, (Math.random() - 0.5) * 0.05);
-      } else if (y < this.waterLevel + 1.8) {
-        // Riverbank rich dirt
-        col.copy(dirtColor);
-      } else if (y < 9.0) {
-        // Sylvan grass
-        const mix = (Math.sin(x * 0.1) + Math.cos(z * 0.1)) * 0.5;
-        col.copy(grassColor).lerp(lushColor, Math.max(0, Math.min(1, mix)));
+
+      if (distToChasm < 18) {
+        // Gloom Chasm Malice Scorch
+        const factor = (18 - distToChasm) / 18;
+        col.copy(gloomScorched).lerp(maliceCrimson, factor);
+      } else if (y < this.waterLevel + 0.4) {
+        // Waterline & Shoreline Sand / Riverbed
+        const sandMix = THREE.MathUtils.clamp((y - (this.waterLevel - 3.0)) / 3.4, 0, 1);
+        col.copy(wetPebble).lerp(shoreSand, sandMix);
+        col.offsetHSL(0, 0, (Math.random() - 0.5) * 0.04);
+      } else if (slope > 0.35) {
+        // Steep Rock Crags & Cliff Bluffs (Slope-Based Rock Splatting)
+        const rockMix = THREE.MathUtils.clamp((slope - 0.35) / 0.35, 0, 1);
+        col.copy(cliffRock).lerp(darkStrata, rockMix);
+        // Subtle sedimentary horizontal banding
+        const strata = Math.sin(y * 1.5) * 0.04;
+        col.offsetHSL(0, 0, strata);
+      } else if (slope > 0.20) {
+        // Intermediate transition: Forest loam, dry roots and mossy rock
+        const transMix = (slope - 0.20) / 0.15;
+        const grassBase = meadowGrass.clone().offsetHSL(0, 0, (Math.sin(x * 0.1 + z * 0.1) * 0.05));
+        col.copy(grassBase).lerp(forestLoam, transMix);
       } else {
-        // High mountain stone
-        col.copy(stoneColor);
+        // Flat Meadows, Plains, and Woodland Glades
+        const patchNoise = (Math.sin(x * 0.05) + Math.cos(z * 0.05)) * 0.5;
+        col.copy(meadowGrass).lerp(sunnyGrass, THREE.MathUtils.clamp(patchNoise + 0.4, 0, 1));
+        if (Math.sin(x * 0.18 + z * 0.15) > 0.7) {
+          col.lerp(darkGrass, 0.4); // Clover & shaded moss patches
+        }
       }
+
       colors.push(col.r, col.g, col.b);
     }
 
     geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geom.computeVertexNormals();
 
     const grassTex = TextureGenerator.createGrassTexture();
+    const terrainNormalMap = TextureGenerator.createTerrainDetailNormalMap();
 
     const terrainMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       map: grassTex,
-      roughness: 0.8,
-      metalness: 0.05,
+      normalMap: terrainNormalMap,
+      normalScale: new THREE.Vector2(0.85, 0.85),
+      roughness: 0.82,
+      metalness: 0.04,
       flatShading: false
     });
 

@@ -131,6 +131,45 @@ export class TextureGenerator {
     return texture;
   }
 
+  // High-fidelity terrain normal map with micro-crags, rocky ridges and pebbles
+  static createTerrainDetailNormalMap() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+
+    for (let y = 0; y < 512; y++) {
+      for (let x = 0; x < 512; x++) {
+        const idx = (y * 512 + x) * 4;
+        // Multi-scale procedural rock & ground bump
+        const n1 = Math.sin(x * 0.08) * Math.cos(y * 0.08);
+        const n2 = Math.sin((x + y) * 0.18) * 0.5;
+        const n3 = Math.cos((x * 0.4 - y * 0.35)) * 0.25;
+        const grain = (Math.random() - 0.5) * 0.2;
+
+        const bumpX = (n1 * 0.5 + n2 * 0.3 + n3 * 0.2 + grain) * 55;
+        const bumpY = (Math.cos(x * 0.08) * Math.sin(y * 0.08) * 0.5 + Math.sin((y - x) * 0.18) * 0.3 + grain) * 55;
+
+        d[idx] = Math.floor(Math.max(0, Math.min(255, 128 + bumpX)));
+        d[idx + 1] = Math.floor(Math.max(0, Math.min(255, 128 + bumpY)));
+        d[idx + 2] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(24, 24);
+    return texture;
+  }
+
   // Water normal map for realistic shimmering waves and ripples
   // Water normal map for realistic shimmering waves, cross-wind ripples, and caustics
   static createWaterNormalMap() {

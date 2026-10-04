@@ -312,3 +312,4 @@ export class WikiModal {
     area.innerHTML = html;
   }
 }
+

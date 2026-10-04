@@ -992,25 +992,35 @@ export class Environment {
     }
   }
 
-  // 17. Ancient Zonai Boost Pads (Sky launch catapults)
+  // 17. Ancient Zonai Boost Pads (Sky launch catapults with visible vertical sky light beacons)
   spawnZonaiBoostPads() {
     const padLocations = [
+      [8, 14],     // Right next to the starting woodland grove!
       [18, 12],
       [-45, -30],
-      [55, 35]
+      [55, 35],
+      [38, -32],   // Near Living Roots Shrine
+      [-42, 28],   // Near Magnetic Flow Shrine
+      [10, 68]     // Near Sylvan Lake & Temporal Shrine
     ];
 
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.7, roughness: 0.3 });
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.8, roughness: 0.25 });
     const ringMat = new THREE.MeshStandardMaterial({
       color: 0x34d399,
       emissive: 0x10b981,
-      emissiveIntensity: 0.95,
-      roughness: 0.2
+      emissiveIntensity: 1.2,
+      roughness: 0.15
     });
     const beamMat = new THREE.MeshBasicMaterial({
       color: 0x6ee7b7,
       transparent: true,
       opacity: 0.45,
+      side: THREE.DoubleSide
+    });
+    const skyBeaconMat = new THREE.MeshBasicMaterial({
+      color: 0x34d399,
+      transparent: true,
+      opacity: 0.25,
       side: THREE.DoubleSide
     });
 
@@ -1022,27 +1032,36 @@ export class Environment {
       const padGroup = new THREE.Group();
       padGroup.position.set(x, y + 0.08, z);
 
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.2, 16), baseMat);
+      // Stepped Zonai Stone Base
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.4, 0.25, 16), baseMat);
       base.receiveShadow = true;
       padGroup.add(base);
 
-      const glyphRing = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 24), ringMat);
+      // Glowing Zonai Glyphs Ring
+      const glyphRing = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.1, 8, 28), ringMat);
       glyphRing.rotation.x = Math.PI / 2;
-      glyphRing.position.y = 0.12;
+      glyphRing.position.y = 0.14;
       padGroup.add(glyphRing);
 
-      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 8), ringMat);
-      core.position.y = 0.12;
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.08, 12), ringMat);
+      core.position.y = 0.14;
       padGroup.add(core);
 
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.2, 2.5, 12, 1, true), beamMat);
-      beam.position.y = 1.35;
-      padGroup.add(beam);
+      // Pulsing Green Sky Light Pillar reaching up to the clouds
+      const skyBeacon = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.8, 48, 12, 1, true), skyBeaconMat);
+      skyBeacon.position.y = 24.0;
+      padGroup.add(skyBeacon);
+
+      // Point Light for dramatic ground glow
+      const padLight = new THREE.PointLight(0x10b981, 2.5, 16);
+      padLight.position.set(0, 1.2, 0);
+      padGroup.add(padLight);
 
       padGroup.userData = {
         isZonaiPad: true,
+        radius: 2.6,
         glyphRing,
-        beam
+        skyBeacon
       };
 
       this.scene.add(padGroup);

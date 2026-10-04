@@ -1918,19 +1918,20 @@ export class PlayerEvermean {
             fpArms.armL.position.z = -0.45;
             fpArms.armL.rotation.set(0.2, 0.15, -0.1);
           }
-          if (fpArms.armR) {
-            fpArms.armR.position.x = 0.38 + bobX * 0.4;
-            fpArms.armR.position.y = -0.35 + bobY;
+          const fpArmR = fpArms.armR || fpArms.rightArm;
+          if (fpArmR) {
+            fpArmR.position.x = 0.38 + bobX * 0.4;
+            fpArmR.position.y = -0.35 + bobY;
 
             if (this.isAttacking) {
               const swingProgress = Math.max(0, Math.min(1, (0.42 - this.attackTimer) / 0.42));
-              fpArms.rightArm.rotation.x = 0.2 + Math.sin(swingProgress * Math.PI) * 1.2;
-              fpArms.rightArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.9;
-              fpArms.rightArm.position.z = -0.55 - Math.sin(swingProgress * Math.PI) * 0.25;
+              fpArmR.rotation.x = 0.2 + Math.sin(swingProgress * Math.PI) * 1.2;
+              fpArmR.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.9;
+              fpArmR.position.z = -0.55 - Math.sin(swingProgress * Math.PI) * 0.25;
             } else {
-              fpArms.rightArm.rotation.x = THREE.MathUtils.lerp(fpArms.rightArm.rotation.x, 0.2, delta * 10);
-              fpArms.rightArm.rotation.y = THREE.MathUtils.lerp(fpArms.rightArm.rotation.y, 0, delta * 10);
-              fpArms.rightArm.position.z = THREE.MathUtils.lerp(fpArms.rightArm.position.z, -0.55, delta * 10);
+              fpArmR.rotation.x = THREE.MathUtils.lerp(fpArmR.rotation.x, 0.2, delta * 10);
+              fpArmR.rotation.y = THREE.MathUtils.lerp(fpArmR.rotation.y, 0, delta * 10);
+              fpArmR.position.z = THREE.MathUtils.lerp(fpArmR.position.z, -0.55, delta * 10);
             }
           }
         }

@@ -115,7 +115,9 @@
         navigator.serviceWorker.register('./sw.js')
           .then((reg) => {
             console.log('Evermean PWA ServiceWorker registered with scope:', reg.scope);
-            reg.update();
+            if (typeof reg.update === 'function') {
+              reg.update().catch((e) => console.warn('SW update check:', e));
+            }
           })
           .catch((err) => {
             console.warn('Evermean PWA ServiceWorker registration failed:', err);

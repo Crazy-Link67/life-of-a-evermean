@@ -71,9 +71,9 @@ export class CollisionSystem {
       const distSq = dx * dx + dz * dz;
       const minDist = playerRadius + c.radius;
 
-      if (distSq < minDist * minDist && distSq > 0.00001) {
+      if (distSq < minDist * minDist && distSq > 0.0001) {
         const dist = Math.sqrt(distSq);
-        const overlap = minDist - dist;
+        const overlap = Math.min(minDist - dist, 0.4);
         const pushX = (dx / dist) * overlap;
         const pushZ = (dz / dist) * overlap;
         playerPos.x += pushX;
@@ -87,7 +87,6 @@ export class CollisionSystem {
       const cap = this.capsules[i];
       if (headY < cap.minY || footY > cap.maxY) continue;
 
-      // Project player position onto the capsule line segment (x1, z1) -> (x2, z2)
       const segDx = cap.x2 - cap.x1;
       const segDz = cap.z2 - cap.z1;
       const segLenSq = segDx * segDx + segDz * segDz;
@@ -106,9 +105,9 @@ export class CollisionSystem {
       const distSq = dx * dx + dz * dz;
       const minDist = playerRadius + cap.radius;
 
-      if (distSq < minDist * minDist && distSq > 0.00001) {
+      if (distSq < minDist * minDist && distSq > 0.0001) {
         const dist = Math.sqrt(distSq);
-        const overlap = minDist - dist;
+        const overlap = Math.min(minDist - dist, 0.4);
         playerPos.x += (dx / dist) * overlap;
         playerPos.z += (dz / dist) * overlap;
         collided = true;
@@ -143,36 +142,35 @@ export class CollisionSystem {
         else if (minEdge === dFront) playerPos.z = b.minZ - playerRadius;
         else playerPos.z = b.maxZ + playerRadius;
         collided = true;
-      } else if (distSq < playerRadius * playerRadius && distSq > 0.00001) {
-        // Overlapping exterior edge
+      } else if (distSq < playerRadius * playerRadius && distSq > 0.0001) {
         const dist = Math.sqrt(distSq);
-        const overlap = playerRadius - dist;
+        const overlap = Math.min(playerRadius - dist, 0.4);
         playerPos.x += (dx / dist) * overlap;
         playerPos.z += (dz / dist) * overlap;
         collided = true;
       }
     }
 
-    // 4. Resolve 3D Spheres (Granite boulders & rock clusters)
+    // 4. Resolve 3D Spheres (Granite boulders & rock clusters) with horizontal slice projection
     for (let i = 0; i < this.spheres.length; i++) {
       const s = this.spheres[i];
-      const dx = playerPos.x - s.x;
-      const dy = playerPos.y - s.y;
-      const dz = playerPos.z - s.z;
-      const distSq = dx * dx + dy * dy + dz * dz;
-      const minDist = playerRadius + s.radius;
+      const dy = Math.abs(playerPos.y - s.y);
+      if (dy > s.radius + playerHeight * 0.5) continue;
 
-      if (distSq < minDist * minDist && distSq > 0.00001) {
-        const dist = Math.sqrt(distSq);
-        const overlap = minDist - dist;
-        // Apply horizontal-biased push
-        const hDist = Math.hypot(dx, dz);
-        if (hDist > 0.001) {
-          playerPos.x += (dx / hDist) * overlap;
-          playerPos.z += (dz / hDist) * overlap;
-        } else {
-          playerPos.x += overlap;
-        }
+      // Calculate horizontal slice radius of sphere at player's elevation
+      const effDy = Math.min(dy, s.radius * 0.95);
+      const rSlice = Math.sqrt(Math.max(0, s.radius * s.radius - effDy * effDy));
+      const minDist = playerRadius + rSlice;
+
+      const dx = playerPos.x - s.x;
+      const dz = playerPos.z - s.z;
+      const hDistSq = dx * dx + dz * dz;
+
+      if (hDistSq < minDist * minDist && hDistSq > 0.0001) {
+        const hDist = Math.sqrt(hDistSq);
+        const overlap = Math.min(minDist - hDist, 0.4);
+        playerPos.x += (dx / hDist) * overlap;
+        playerPos.z += (dz / hDist) * overlap;
         collided = true;
       }
     }

@@ -106,32 +106,31 @@ export class AudioManager {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime((110 + Math.random() * 30) * pitchMult, t);
-    osc.frequency.exponentialRampToValueAtTime(35 * pitchMult, t + 0.08);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime((85 + Math.random() * 20) * pitchMult, t);
+    osc.frequency.exponentialRampToValueAtTime(30 * pitchMult, t + 0.06);
 
-    gain.gain.setValueAtTime(0.25, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
 
     osc.connect(gain);
     gain.connect(this.sfxGain);
 
     osc.start(t);
-    osc.stop(t + 0.1);
+    osc.stop(t + 0.08);
 
-    // Add wooden click
-    const noiseBuffer = this.createNoiseBuffer(0.05);
+    // Subtle soft grass / soil rustle
+    const noiseBuffer = this.createNoiseBuffer(0.04);
     if (noiseBuffer) {
       const noise = this.ctx.createBufferSource();
       noise.buffer = noiseBuffer;
       const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 600 * pitchMult;
-      filter.Q.value = 3;
+      filter.type = 'lowpass';
+      filter.frequency.value = 260 * pitchMult;
 
       const nGain = this.ctx.createGain();
-      nGain.gain.setValueAtTime(0.15, t);
-      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      nGain.gain.setValueAtTime(0.035, t);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
 
       noise.connect(filter);
       filter.connect(nGain);
@@ -499,23 +498,23 @@ export class AudioManager {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 320;
+    filter.frequency.value = 160;
 
     const gain = this.ctx.createGain();
-    gain.gain.value = 0.25;
+    gain.gain.value = 0.05;
 
     whiteNoise.connect(filter);
     filter.connect(gain);
     gain.connect(this.ambientGain);
     whiteNoise.start();
 
-    // Occasional gentle wood groan / bird chirp interval
+    // Occasional very gentle, rare distant forest bird note (once every ~30 seconds)
     setInterval(() => {
       if (!this.ctx || this.ctx.state !== 'running') return;
-      if (Math.random() < 0.3) {
+      if (Math.random() < 0.35) {
         this.playGentleBird();
       }
-    }, 4000);
+    }, 28000);
   }
 
   playGentleBird() {
@@ -524,13 +523,13 @@ export class AudioManager {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    const baseF = 1800 + Math.random() * 800;
+    const baseF = 1600 + Math.random() * 600;
     osc.frequency.setValueAtTime(baseF, t);
-    osc.frequency.exponentialRampToValueAtTime(baseF + 400, t + 0.06);
-    osc.frequency.exponentialRampToValueAtTime(baseF, t + 0.12);
+    osc.frequency.exponentialRampToValueAtTime(baseF + 250, t + 0.08);
+    osc.frequency.exponentialRampToValueAtTime(baseF, t + 0.16);
 
-    gain.gain.setValueAtTime(0.04, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    gain.gain.setValueAtTime(0.012, t);
+    gain.gain.exponentialRampToValueAtTime(0.0005, t + 0.2);
 
     osc.connect(gain);
     gain.connect(this.ambientGain);
@@ -1064,6 +1063,180 @@ export class AudioManager {
         }
       } catch (e) {}
     }, 350);
+  }
+
+  // Master Sword Swift Slash Whoosh
+  playMasterSwordSlash() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Metallic blade ring
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1400, t);
+    osc.frequency.exponentialRampToValueAtTime(320, t + 0.12);
+
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.15);
+
+    // Aerodynamic whoosh
+    const buffer = this.createNoiseBuffer(0.15);
+    if (buffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1800, t);
+      filter.frequency.exponentialRampToValueAtTime(500, t + 0.12);
+      filter.Q.value = 2.5;
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.15, t);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+      noise.connect(filter);
+      filter.connect(nGain);
+      nGain.connect(this.sfxGain);
+      noise.start(t);
+    }
+  }
+
+  // Master Sword Radiant Energy Beam
+  playMasterSwordBeam() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    [880, 1318.5, 1760].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.03);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.8, t + idx * 0.03 + 0.25);
+
+      gain.gain.setValueAtTime(0.14, t + idx * 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.03 + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + idx * 0.03);
+      osc.stop(t + idx * 0.03 + 0.32);
+    });
+  }
+
+  // Spin Attack Whirlwind
+  playSpinAttack() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(880, t + 0.35);
+
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.42);
+
+    // Culminating bell finish
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const tEnd = this.ctx.currentTime;
+      const bOsc = this.ctx.createOscillator();
+      const bGain = this.ctx.createGain();
+      bOsc.type = 'sine';
+      bOsc.frequency.setValueAtTime(1046.5, tEnd);
+      bGain.gain.setValueAtTime(0.2, tEnd);
+      bGain.gain.exponentialRampToValueAtTime(0.001, tEnd + 0.8);
+      bOsc.connect(bGain);
+      bGain.connect(this.sfxGain);
+      bOsc.start(tEnd);
+      bOsc.stop(tEnd + 0.85);
+    }, 280);
+  }
+
+  // Legendary Zelda Tears of the Kingdom Title Screen Fanfare
+  playTotkTitleFanfare() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Resonant opening chord (Eb minor / Db majestic)
+    const chord1 = [155.56, 233.08, 311.13, 466.16];
+    chord1.forEach(freq => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 2.2);
+      osc.connect(gain);
+      gain.connect(this.musicGain);
+      osc.start(t);
+      osc.stop(t + 2.3);
+    });
+
+    // Soaring melody notes (The signature TOTK Erhu / French Horn phrase)
+    const melody = [
+      { f: 466.16, d: 0.4, time: 0.35 },
+      { f: 523.25, d: 0.4, time: 0.75 },
+      { f: 622.25, d: 0.7, time: 1.15 },
+      { f: 587.33, d: 0.5, time: 1.85 },
+      { f: 466.16, d: 0.6, time: 2.35 },
+      { f: 698.46, d: 1.5, time: 2.95 }
+    ];
+
+    melody.forEach(m => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(m.f, t + m.time);
+
+      gain.gain.setValueAtTime(0.18, t + m.time);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + m.time + m.d);
+
+      osc.connect(gain);
+      gain.connect(this.musicGain);
+      osc.start(t + m.time);
+      osc.stop(t + m.time + m.d + 0.1);
+    });
+  }
+
+  // Link Transformation Sound Effect
+  playLinkTransform() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+
+    // Zonai divine rush
+    [329.63, 493.88, 659.25, 987.77, 1318.51].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.07);
+      osc.frequency.linearRampToValueAtTime(freq * 1.08, t + idx * 0.07 + 0.3);
+
+      gain.gain.setValueAtTime(0.2, t + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.07 + 0.6);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t + idx * 0.07);
+      osc.stop(t + idx * 0.07 + 0.65);
+    });
   }
 }
 

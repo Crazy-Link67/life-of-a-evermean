@@ -19,6 +19,7 @@ export class CreatureVillagers {
     this.cuccoSwarm = [];
     this.likelikes = [];
     this.alertBadges = [];
+    this.demonKing = null;
     this.scene = null;
     this.terrain = null;
     this.animTime = 0;
@@ -54,6 +55,9 @@ export class CreatureVillagers {
     for (let i = 0; i < 7; i++) {
       this.spawnGoblin(130 + (Math.random() - 0.5) * 24, 130 + (Math.random() - 0.5) * 24, i === 0, 'depths', -90);
     }
+
+    // 6. Spawn Demon King Ganondorf Manifestation in The Depths Sanctum (x: 130, y: -90, z: 160)
+    this.spawnDemonKing(130, -90, 160);
 
     // Spawn Woodland Like-Like Ambush Predators
     this.spawnLikeLike(35, -15);
@@ -1635,6 +1639,47 @@ export class CreatureVillagers {
         this.alertBadges.splice(bIdx, 1);
       }
     }
+
+    // 14. UPDATE DEMON KING GANONDORF MANIFESTATION (Depths Final Boss)
+    if (this.demonKing && !this.demonKing.userData.defeated) {
+      const dk = this.demonKing;
+      const u = dk.userData;
+      const dist = dk.position.distanceTo(playerPos);
+      if (u.attackCooldown > 0) u.attackCooldown -= delta;
+
+      if (u.blade) {
+        u.blade.material.emissiveIntensity = 0.8 + Math.sin(this.animTime * 5.0) * 0.4;
+      }
+
+      if (dist < 34.0) {
+        const toPlayer = new THREE.Vector3().subVectors(playerPos, dk.position);
+        toPlayer.y = 0;
+        if (toPlayer.lengthSq() > 0.1) {
+          toPlayer.normalize();
+          dk.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+        }
+
+        if (dist > 4.2) {
+          dk.position.x += toPlayer.x * 3.4 * delta;
+          dk.position.z += toPlayer.z * 3.4 * delta;
+          const stride = Math.sin(this.animTime * 4.5);
+          if (u.leftLeg && u.rightLeg) {
+            u.leftLeg.rotation.x = stride * 0.45;
+            u.rightLeg.rotation.x = -stride * 0.45;
+          }
+        } else if (u.attackCooldown <= 0) {
+          u.attackCooldown = 2.4;
+          audio.playHeadSlam?.(1.5, true);
+          engine.applyScreenShake(0.5);
+          engine.spawnShockwave(dk.position, 5.0, 0x881337);
+          engine.spawnParticles(playerPos, 20, 0x881337, 5, 0.18);
+          player.takeDamage(24, 'Demon King Malice Blade');
+          if (window.showGameNotification) {
+            window.showGameNotification('⚠️ DEMON KING STRUCK YOU WITH GLOOM MALICE!');
+          }
+        }
+      }
+    }
   }
 
   // Interact with or hit Fox
@@ -1967,6 +2012,181 @@ export class CreatureVillagers {
     sprite.position.y += 2.8;
     this.scene.add(sprite);
     this.alertBadges.push({ sprite, life: 1.8 });
+  }
+
+  // Spawn Demon King Ganondorf Manifestation in The Depths Sanctum
+  spawnDemonKing(x, y, z) {
+    const dkGroup = new THREE.Group();
+    dkGroup.position.set(x, y, z);
+
+    const gloomTex = TextureGenerator.createGloomMaliceTexture();
+    const armorMat = new THREE.MeshStandardMaterial({
+      color: 0x18181b,
+      roughness: 0.5,
+      metalness: 0.85
+    });
+    const gloomMat = new THREE.MeshStandardMaterial({
+      map: gloomTex,
+      roughness: 0.7,
+      emissive: 0x881337,
+      emissiveIntensity: 0.6
+    });
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      metalness: 0.8,
+      roughness: 0.25,
+      emissive: 0xb45309,
+      emissiveIntensity: 0.3
+    });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.7 });
+
+    // Towering Body (Torso)
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.75, 2.2, 8), armorMat);
+    torso.position.y = 2.6;
+    torso.castShadow = true;
+    dkGroup.add(torso);
+
+    // Gloom Heart Core on Chest
+    const chestPlate = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 1), gloomMat);
+    chestPlate.position.set(0, 2.8, 0.65);
+    dkGroup.add(chestPlate);
+
+    // Massive Pauldrons (Spiked shoulder armor)
+    [-1.2, 1.2].forEach(px => {
+      const pauldron = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.9, 5), armorMat);
+      pauldron.position.set(px, 3.4, 0);
+      pauldron.rotation.z = px > 0 ? -Math.PI / 4 : Math.PI / 4;
+      dkGroup.add(pauldron);
+    });
+
+    // Head with Gerudo facial contours
+    const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 1), gloomMat);
+    head.position.set(0, 4.0, 0);
+    dkGroup.add(head);
+
+    // Glowing Crimson Malice Eyes
+    [-0.18, 0.18].forEach(ex => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), eyeMat);
+      eye.position.set(ex, 4.05, 0.48);
+      dkGroup.add(eye);
+    });
+
+    // Golden Horned Crown Crest
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.08, 6, 12), goldMat);
+    crown.rotation.x = Math.PI / 2;
+    crown.position.set(0, 4.25, 0);
+    dkGroup.add(crown);
+
+    const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.8, 5), goldMat);
+    hornL.position.set(-0.45, 4.6, 0);
+    hornL.rotation.z = 0.35;
+    dkGroup.add(hornL);
+
+    const hornR = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.8, 5), goldMat);
+    hornR.position.set(0.45, 4.6, 0);
+    hornR.rotation.z = -0.35;
+    dkGroup.add(hornR);
+
+    // Long Crimson Mane / Hair flowing down back
+    const hair = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.6, 2.5, 6), hairMat);
+    hair.position.set(0, 3.2, -0.55);
+    hair.rotation.x = 0.2;
+    dkGroup.add(hair);
+
+    // Left Arm with Obsidian Gauntlet
+    const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 1.8, 6), armorMat);
+    leftArm.position.set(-1.25, 2.4, 0);
+    dkGroup.add(leftArm);
+
+    // Right Arm wielding Gloom Katana / Scythe
+    const rightArm = new THREE.Group();
+    rightArm.position.set(1.25, 3.2, 0);
+    const armMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 1.8, 6), armorMat);
+    armMesh.position.y = -0.8;
+    rightArm.add(armMesh);
+
+    // 3.4m Crimson Gloom Blade
+    const bladeMat = new THREE.MeshStandardMaterial({
+      color: 0x881337,
+      emissive: 0xe11d48,
+      emissiveIntensity: 1.2,
+      roughness: 0.2,
+      metalness: 0.8
+    });
+    const bladeGeom = new THREE.BoxGeometry(0.15, 3.4, 0.45);
+    const blade = new THREE.Mesh(bladeGeom, bladeMat);
+    blade.position.set(0, -0.4, 1.2);
+    blade.rotation.x = Math.PI / 4;
+    rightArm.add(blade);
+    dkGroup.add(rightArm);
+
+    // Legs
+    const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.24, 1.8, 6), armorMat);
+    leftLeg.position.set(-0.48, 0.9, 0);
+    dkGroup.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.24, 1.8, 6), armorMat);
+    rightLeg.position.set(0.48, 0.9, 0);
+    dkGroup.add(rightLeg);
+
+    // Ominous Crimson Aura Light
+    const bossLight = new THREE.PointLight(0xe11d48, 3.5, 25);
+    bossLight.position.set(0, 3.0, 0);
+    dkGroup.add(bossLight);
+
+    dkGroup.userData = {
+      isDemonKing: true,
+      name: 'Demon King Ganondorf Manifestation',
+      hp: 350,
+      maxHp: 350,
+      attackCooldown: 0,
+      defeated: false,
+      leftLeg,
+      rightLeg,
+      rightArm,
+      blade
+    };
+
+    this.scene.add(dkGroup);
+    this.demonKing = dkGroup;
+    return dkGroup;
+  }
+
+  // Damage Demon King Final Boss
+  damageDemonKing(amount, engine, audio, player) {
+    if (!this.demonKing || this.demonKing.userData.defeated) return;
+    const u = this.demonKing.userData;
+    u.hp -= amount;
+
+    audio.playHeadSlam?.(0.9, true);
+    engine.applyScreenShake(0.3);
+    engine.spawnParticles(this.demonKing.position.clone().add(new THREE.Vector3(0, 2.5, 0)), 22, 0xe11d48, 5, 0.18);
+
+    if (window.showGameNotification) {
+      window.showGameNotification(`⚔️ DEMON KING HIT! [${Math.max(0, Math.ceil(u.hp))} / ${u.maxHp} HP]`);
+    }
+
+    if (u.hp <= 0) {
+      u.defeated = true;
+      audio.playCosmicSlam?.();
+      engine.applyScreenShake(1.2);
+      engine.spawnCosmicBurst(this.demonKing.position.clone().add(new THREE.Vector3(0, 3, 0)), 120);
+      engine.spawnShockwave(this.demonKing.position, 28.0, 0xfacc15);
+
+      player.barkHp = player.maxBarkHp;
+      player.moisture = player.maxMoisture;
+      player.photosynthesis = player.maxPhotosynthesis;
+      player.linkHearts = player.linkMaxHearts;
+      player.inventory.lightsOfBlessing = (player.inventory.lightsOfBlessing || 0) + 4;
+      player.soilBiomass += 500;
+
+      this.scene.remove(this.demonKing);
+
+      if (window.game && window.game.hud && window.game.hud.showTotkEnding) {
+        window.game.hud.showTotkEnding();
+      }
+    }
   }
 }
 

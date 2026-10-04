@@ -315,11 +315,12 @@ export class Engine {
   }
 
   update(delta) {
-    // Screen shake decay
+    // Screen shake decay - subtle, gentle and fast-settling
     if (this.screenShake > 0.001) {
-      this.camera.position.x += (Math.random() - 0.5) * this.screenShake * 0.2;
-      this.camera.position.y += (Math.random() - 0.5) * this.screenShake * 0.2;
-      this.screenShake = Math.max(0, this.screenShake - delta * this.shakeDecay);
+      const shakeOffset = this.screenShake * 0.035;
+      this.camera.position.x += (Math.random() - 0.5) * shakeOffset;
+      this.camera.position.y += (Math.random() - 0.5) * shakeOffset;
+      this.screenShake = Math.max(0, this.screenShake - delta * 12.0);
     }
 
     // Update Rain Particles around Camera

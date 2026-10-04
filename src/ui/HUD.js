@@ -323,6 +323,24 @@ export class HUD {
         </div>
       </div>
 
+      <!-- Zelda TOTK Status Panel (Hearts & Zonai Battery Cells) -->
+      <div id="totk-status-panel" style="position: absolute; top: 18px; left: 20px; display: none; flex-direction: column; gap: 8px; z-index: 100; pointer-events: none; background: rgba(18, 14, 10, 0.85); backdrop-filter: blur(8px); padding: 12px 16px; border-radius: 14px; border: 1.5px solid #10b981; box-shadow: 0 8px 32px rgba(0,0,0,0.6);">
+        <div style="font-size: 11px; font-weight: 800; color: #6ee7b7; letter-spacing: 1px; display: flex; justify-content: space-between;">
+          <span>🗡️ HERO OF HYRULE</span>
+          <span style="color: #facc15; font-size: 10px;">[L] Toggle Form</span>
+        </div>
+        <!-- Heart Containers Row -->
+        <div id="totk-hearts-row" style="display: flex; gap: 6px; align-items: center; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));"></div>
+        <!-- Zonai Energy Cell Battery -->
+        <div id="totk-battery-container" style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+          <span style="font-size: 14px;">🔋</span>
+          <div style="width: 110px; height: 10px; background: rgba(0,0,0,0.6); border-radius: 5px; overflow: hidden; border: 1px solid rgba(16,185,129,0.5);">
+            <div id="totk-battery-fill" style="width: 100%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); transition: width 0.15s ease;"></div>
+          </div>
+          <span id="totk-battery-val" style="font-size: 10px; font-weight: 800; color: #a7f3d0; font-family: monospace;">100%</span>
+        </div>
+      </div>
+
       <!-- Top Banner -->
       <div id="standard-top-banner" class="top-center-banner">
         <div id="day-counter" class="day-title">DAY 1 - MORNING</div>
@@ -456,6 +474,45 @@ export class HUD {
             <span>👹 Bokoblin Camp</span>
             <span>📍 Waypoint Beacon</span>
             <span>🌲 Remote Players</span>
+          </div>
+        </div>
+      <!-- Boss Health Bar (Demon King Ganondorf Manifestation) -->
+      <div id="boss-health-bar-container" style="position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); width: 440px; background: rgba(18, 14, 10, 0.9); backdrop-filter: blur(8px); padding: 8px 16px; border-radius: 14px; border: 1.5px solid #e11d48; box-shadow: 0 8px 30px rgba(0,0,0,0.85); display: none; flex-direction: column; gap: 5px; z-index: 100;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #fecdd3; letter-spacing: 0.8px;">
+          <span id="boss-name-label">DEMON KING GANONDORF MANIFESTATION</span>
+          <span id="boss-hp-label" style="font-family: monospace;">350 / 350</span>
+        </div>
+        <div style="width: 100%; height: 11px; background: rgba(0,0,0,0.7); border-radius: 6px; overflow: hidden; border: 1px solid rgba(225, 29, 72, 0.4);">
+          <div id="boss-hp-bar" style="width: 100%; height: 100%; background: linear-gradient(90deg, #9f1239, #f43f5e); transition: width 0.15s ease;"></div>
+        </div>
+      </div>
+
+      <!-- Tears of the Kingdom Cinematic Title Card Overlay -->
+      <div id="totk-title-overlay" style="position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, rgba(15, 23, 42, 0.35) 0%, rgba(2, 6, 23, 0.82) 100%); opacity: 0; transition: opacity 1.6s ease; z-index: 2000;">
+        <div style="font-family: 'Cinzel', 'Times New Roman', Georgia, serif; text-align: center; transform: translateY(-20px);">
+          <div style="font-size: 14px; letter-spacing: 12px; color: #cbd5e1; font-weight: 700; margin-bottom: 8px; text-shadow: 0 2px 8px rgba(0,0,0,0.9);">THE LEGEND OF</div>
+          <div style="font-size: 58px; font-weight: 900; letter-spacing: 6px; color: #facc15; text-shadow: 0 4px 20px rgba(234, 179, 8, 0.6), 0 0 50px rgba(250, 204, 21, 0.4); margin-bottom: 2px;">ZELDA</div>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 4px;">
+            <div style="height: 1px; width: 60px; background: linear-gradient(90deg, transparent, #38bdf8);"></div>
+            <div style="font-size: 22px; font-weight: 800; letter-spacing: 8px; color: #38bdf8; text-shadow: 0 2px 14px rgba(56, 189, 248, 0.8);">TEARS OF THE KINGDOM</div>
+            <div style="height: 1px; width: 60px; background: linear-gradient(90deg, #38bdf8, transparent);"></div>
+          </div>
+          <div style="font-size: 13px; letter-spacing: 4px; color: #94a3b8; margin-top: 18px; font-style: italic;">The Great Sky Island &bull; Realm of Awakening</div>
+        </div>
+      </div>
+
+      <!-- Tears of the Kingdom Victory & Ending Screen Overlay -->
+      <div id="totk-ending-overlay" style="position: absolute; inset: 0; pointer-events: auto; display: none; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, rgba(30, 27, 75, 0.94) 0%, rgba(2, 6, 23, 0.98) 100%); z-index: 3000; opacity: 0; transition: opacity 1.5s ease;">
+        <div style="font-family: 'Cinzel', Georgia, serif; text-align: center; max-width: 640px; padding: 34px; background: rgba(15, 23, 42, 0.85); border: 2px solid #facc15; border-radius: 20px; box-shadow: 0 0 80px rgba(250, 204, 21, 0.4); backdrop-filter: blur(14px);">
+          <div style="font-size: 42px; margin-bottom: 12px;">🌟</div>
+          <div style="font-size: 13px; letter-spacing: 8px; color: #67e8f9; font-weight: 700; margin-bottom: 6px;">HYRULE RESTORED</div>
+          <div style="font-size: 32px; font-weight: 900; letter-spacing: 4px; color: #facc15; margin-bottom: 14px; text-shadow: 0 0 25px rgba(250, 204, 21, 0.6);">THE DEMON KING HAS FALLEN</div>
+          <div style="font-size: 14px; color: #e2e8f0; line-height: 1.7; margin-bottom: 24px;">
+            The Gloom of the Depths has dissipated into divine light. The sacred bond between the Hero of Hyrule and the ancient Grove Warden has restored eternal peace to Hyrule, from the deepest chasms to the soaring Great Sky Islands.
+          </div>
+          <div style="display: flex; justify-content: center; gap: 14px;">
+            <button id="btn-totk-ascend" style="background: linear-gradient(135deg, #059669, #10b981); border: 1.5px solid #34d399; color: #fff; font-size: 13px; font-weight: 800; padding: 12px 24px; border-radius: 24px; cursor: pointer; box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);">🚀 Ascend to Great Sky Island</button>
+            <button id="btn-totk-continue" style="background: rgba(30, 41, 59, 0.85); border: 1.5px solid #94a3b8; color: #e2e8f0; font-size: 13px; font-weight: 700; padding: 12px 24px; border-radius: 24px; cursor: pointer;">🌲 Continue Exploring Hyrule</button>
           </div>
         </div>
       </div>
@@ -648,6 +705,30 @@ export class HUD {
         this.closeMap();
       });
     }
+
+    // TOTK Ending Buttons
+    const btnTotkAscend = document.getElementById('btn-totk-ascend');
+    if (btnTotkAscend) {
+      btnTotkAscend.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.hideTotkEnding();
+        if (window.game && window.game.player) {
+          window.game.player.position.set(10, 85.2, 45); // Ascend to Great Sky Island!
+          window.game.player.velocity.set(0, 0, 0);
+          if (window.showGameNotification) {
+            window.showGameNotification('🚀 Ascended to the Great Sky Island! The skies are bright and clear.');
+          }
+        }
+      });
+    }
+
+    const btnTotkContinue = document.getElementById('btn-totk-continue');
+    if (btnTotkContinue) {
+      btnTotkContinue.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.hideTotkEnding();
+      });
+    }
   }
 
   show() {
@@ -656,6 +737,36 @@ export class HUD {
 
   hide() {
     if (this.container) this.container.style.display = 'none';
+  }
+
+  showTotkTitleCard() {
+    const title = document.getElementById('totk-title-overlay');
+    if (title) {
+      title.style.opacity = '1';
+      setTimeout(() => {
+        title.style.opacity = '0';
+      }, 5500);
+    }
+  }
+
+  showTotkEnding() {
+    const ending = document.getElementById('totk-ending-overlay');
+    if (ending) {
+      ending.style.display = 'flex';
+      setTimeout(() => {
+        ending.style.opacity = '1';
+      }, 50);
+    }
+  }
+
+  hideTotkEnding() {
+    const ending = document.getElementById('totk-ending-overlay');
+    if (ending) {
+      ending.style.opacity = '0';
+      setTimeout(() => {
+        ending.style.display = 'none';
+      }, 1000);
+    }
   }
 
   update(player, dayNight) {
@@ -677,6 +788,63 @@ export class HUD {
     const biomassPct = Math.min(100, (player.soilBiomass % 100));
     document.getElementById('biomass-bar').style.width = `${biomassPct}%`;
     document.getElementById('biomass-val').textContent = `${Math.floor(player.soilBiomass)} Bio`;
+
+    // Update Zelda TOTK Status Panel (Hearts & Zonai Battery)
+    const totkPanel = document.getElementById('totk-status-panel');
+    const stdStatPanel = this.container.querySelector('.stat-panel');
+    if (totkPanel) {
+      if (player.isLinkMode) {
+        totkPanel.style.display = 'flex';
+        if (stdStatPanel) stdStatPanel.style.display = 'none';
+
+        // Render Heart Containers
+        const heartsRow = document.getElementById('totk-hearts-row');
+        if (heartsRow) {
+          const maxHearts = player.linkMaxHearts || 6;
+          const currentHearts = Math.max(0, player.linkHearts !== undefined ? player.linkHearts : 6);
+          let heartsHtml = '';
+          for (let h = 1; h <= maxHearts; h++) {
+            if (currentHearts >= h) {
+              heartsHtml += '<span style="color: #ef4444; font-size: 20px;">❤️</span>';
+            } else if (currentHearts >= h - 0.5) {
+              heartsHtml += '<span style="color: #f87171; font-size: 20px;">💔</span>';
+            } else {
+              heartsHtml += '<span style="color: #475569; font-size: 20px;">🖤</span>';
+            }
+          }
+          heartsRow.innerHTML = heartsHtml;
+        }
+
+        // Render Zonai Energy Battery
+        const batteryFill = document.getElementById('totk-battery-fill');
+        const batteryVal = document.getElementById('totk-battery-val');
+        const energyPct = Math.max(0, Math.min(100, player.stamina));
+        if (batteryFill) batteryFill.style.width = `${energyPct}%`;
+        if (batteryVal) batteryVal.textContent = `${Math.floor(energyPct)}%`;
+      } else {
+        totkPanel.style.display = 'none';
+        if (stdStatPanel) stdStatPanel.style.display = 'block';
+      }
+    }
+
+    // Update Boss Health Bar if Demon King is nearby
+    const bossContainer = document.getElementById('boss-health-bar-container');
+    if (bossContainer && window.game && window.game.villagers && window.game.villagers.demonKing) {
+      const dk = window.game.villagers.demonKing;
+      const dist = dk.position.distanceTo(player.position);
+      if (dist < 42.0 && !dk.userData.defeated) {
+        bossContainer.style.display = 'flex';
+        const hpPct = Math.max(0, (dk.userData.hp / dk.userData.maxHp) * 100);
+        const hpBar = document.getElementById('boss-hp-bar');
+        const hpLabel = document.getElementById('boss-hp-label');
+        if (hpBar) hpBar.style.width = `${hpPct}%`;
+        if (hpLabel) hpLabel.textContent = `${Math.max(0, Math.ceil(dk.userData.hp))} / ${dk.userData.maxHp}`;
+      } else {
+        bossContainer.style.display = 'none';
+      }
+    } else if (bossContainer) {
+      bossContainer.style.display = 'none';
+    }
 
     // Underwater Diving Screen Overlay
     const underwaterOverlay = document.getElementById('underwater-overlay');

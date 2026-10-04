@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TreeModelGenerator } from './TreeModelGenerator.js';
+import { LinkModelGenerator } from './LinkModelGenerator.js';
 import { audio } from '../core/AudioManager.js';
 import { collision } from '../core/Collision.js';
 
@@ -87,6 +88,18 @@ export class PlayerEvermean {
     // Head-bobbing & root-step timer
     this.stepTimer = 0;
     this.swimTimer = 0;
+
+    // Secret Hero of Hyrule Link Mode (Toggle with L)
+    this.isLinkMode = false;
+    this.linkModelTP = null;
+    this.linkModelFP = null;
+    this.linkCombo = 0;
+    this.linkComboTimer = 0;
+    this.linkSlashTilt = 0;
+    this.linkHearts = 6;
+    this.linkMaxHearts = 6;
+    this.zonaiEnergy = 100;
+    this.zonaiMaxEnergy = 100;
   }
 
   init(scene, camera, terrain, engine, speciesPresetKey = 'oak', customConfig = {}) {
@@ -134,12 +147,26 @@ export class PlayerEvermean {
   }
 
   updateModelVisibility() {
-    if (this.cameraMode === 'first_person') {
+    if (this.isLinkMode) {
       if (this.thirdPersonModel) this.thirdPersonModel.visible = false;
-      if (this.firstPersonModel) this.firstPersonModel.visible = true;
-    } else {
-      if (this.thirdPersonModel) this.thirdPersonModel.visible = true;
       if (this.firstPersonModel) this.firstPersonModel.visible = false;
+      if (this.cameraMode === 'first_person') {
+        if (this.linkModelTP) this.linkModelTP.visible = false;
+        if (this.linkModelFP) this.linkModelFP.visible = true;
+      } else {
+        if (this.linkModelTP) this.linkModelTP.visible = true;
+        if (this.linkModelFP) this.linkModelFP.visible = false;
+      }
+    } else {
+      if (this.linkModelTP) this.linkModelTP.visible = false;
+      if (this.linkModelFP) this.linkModelFP.visible = false;
+      if (this.cameraMode === 'first_person') {
+        if (this.thirdPersonModel) this.thirdPersonModel.visible = false;
+        if (this.firstPersonModel) this.firstPersonModel.visible = true;
+      } else {
+        if (this.thirdPersonModel) this.thirdPersonModel.visible = true;
+        if (this.firstPersonModel) this.firstPersonModel.visible = false;
+      }
     }
   }
 
@@ -147,8 +174,44 @@ export class PlayerEvermean {
     this.cameraMode = (this.cameraMode === 'first_person') ? 'third_person' : 'first_person';
     this.updateModelVisibility();
     if (window.showGameNotification) {
-      window.showGameNotification(this.cameraMode === 'first_person' ? '👁️ Evermean First-Person Knot-Hole Sight' : '🌲 Third-Person Grove View');
+      window.showGameNotification(this.cameraMode === 'first_person' ? '👁️ First-Person Sight' : '🌲 Third-Person Horizon View');
     }
+  }
+
+  // Secret Mode: Press L to Transform into Link (Hero of Hyrule - Tears of the Kingdom)
+  toggleLinkMode() {
+    this.isLinkMode = !this.isLinkMode;
+
+    if (this.isLinkMode) {
+      if (!this.linkModelTP && this.scene) {
+        this.linkModelTP = LinkModelGenerator.createLinkThirdPersonModel();
+        this.linkModelTP.position.copy(this.position);
+        this.scene.add(this.linkModelTP);
+      }
+      if (!this.linkModelFP && this.camera) {
+        this.linkModelFP = LinkModelGenerator.createLinkFirstPersonModel();
+        this.camera.add(this.linkModelFP);
+      }
+      audio.playLinkTransform?.();
+      audio.playZonaiBoost?.();
+      if (this.engine) {
+        this.engine.spawnCosmicBurst(this.position, 60);
+        this.engine.spawnShockwave(this.position, 5.0, 0x10b981);
+      }
+      if (window.showGameNotification) {
+        window.showGameNotification('🗡️ HERO OF HYRULE AWAKENED! Transformed into Link with King Rauru\'s Zonai Arm & Master Sword! (Click: Slash, R-Click: Spin Attack, L: Toggle)');
+      }
+    } else {
+      audio.playEvolution?.();
+      if (this.engine) {
+        this.engine.spawnShockwave(this.position, 4.0, 0x22c55e);
+      }
+      if (window.showGameNotification) {
+        window.showGameNotification('🌲 RESTORED GROVE WARDEN! Returned to Ancient Evermean form. (Press L to transform into Link)');
+      }
+    }
+
+    this.updateModelVisibility();
   }
 
   // World Interactions: Lightroot activation in Depths, Sunken Zora Relic Chests in lakebed
@@ -510,6 +573,11 @@ export class PlayerEvermean {
   executeHeadSlam(environment, villagers) {
     if (this.isAttacking || this.moisture <= 5) return;
 
+    if (this.isLinkMode) {
+      this.executeLinkSwordSlash(environment, villagers);
+      return;
+    }
+
     this.isAttacking = true;
     this.attackTimer = 0.65;
     const isMantis = this.speciesConfig.hasMantisScythes;
@@ -659,9 +727,149 @@ export class PlayerEvermean {
     });
   }
 
+  // Secret Hero of Hyrule: Master Sword 3-Hit Slash Combo with Radiant Energy Beam
+  executeLinkSwordSlash(environment, villagers) {
+    this.isAttacking = true;
+    this.attackTimer = 0.42;
+    this.linkCombo = ((this.linkCombo || 0) + 1) % 3;
+
+    audio.playMasterSwordSlash?.();
+    this.engine.applyScreenShake(0.25);
+
+    const forwardDir = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).normalize();
+    const hitPoint = this.position.clone().addScaledVector(forwardDir, 2.2);
+
+    const arcColor = (this.linkCombo === 2) ? 0x67e8f9 : 0x38bdf8;
+    this.engine.spawnShockwave(hitPoint, 3.2, arcColor);
+    this.engine.spawnParticles(hitPoint, 16, 0x67e8f9, 4, 0.12);
+
+    // Full Health: Master Sword Fires Radiant Energy Blade!
+    const isFullHp = (this.barkHp >= this.maxBarkHp || this.linkHearts >= this.linkMaxHearts);
+    if (isFullHp) {
+      audio.playMasterSwordBeam?.();
+      this.fireMasterSwordBeam(villagers);
+    }
+
+    const slashDamage = 45 + this.linkCombo * 15;
+    const slashRadius = 3.6;
+
+    this.damageCreaturesInArea(villagers, hitPoint, slashRadius, slashDamage);
+
+    if (environment && environment.breakables) {
+      for (let i = environment.breakables.length - 1; i >= 0; i--) {
+        const item = environment.breakables[i];
+        if (item.position.distanceTo(hitPoint) < slashRadius) {
+          item.userData.hp -= slashDamage;
+          this.engine.spawnParticles(item.position, 12, 0x5c4033, 3, 0.12);
+          if (item.userData.hp <= 0) {
+            this.inventory.wood += item.userData.woodYield || 15;
+            this.inventory.acorns += 2;
+            this.soilBiomass += 15;
+            this.engine.spawnParticles(item.position, 25, 0x2e7d32, 5, 0.2);
+            this.scene.remove(item);
+            environment.breakables.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    if (villagers && villagers.demonKing) {
+      if (villagers.demonKing.position.distanceTo(hitPoint) < slashRadius + 2.2) {
+        villagers.damageDemonKing(slashDamage, this.engine, audio, this);
+      }
+    }
+  }
+
+  fireMasterSwordBeam(villagers) {
+    const forwardDir = new THREE.Vector3(
+      Math.sin(this.yaw) * Math.cos(this.pitch),
+      Math.sin(this.pitch),
+      Math.cos(this.yaw) * Math.cos(this.pitch)
+    ).normalize();
+
+    const beamGeom = new THREE.TorusGeometry(0.65, 0.08, 6, 16, Math.PI);
+    beamGeom.rotateY(Math.PI / 2);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide
+    });
+    const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+    beamMesh.position.copy(this.position);
+    beamMesh.position.y += 1.4;
+    beamMesh.rotation.y = this.yaw;
+    this.scene.add(beamMesh);
+
+    const vel = forwardDir.multiplyScalar(32);
+    let lifetime = 0;
+
+    const interval = setInterval(() => {
+      lifetime += 0.035;
+      beamMesh.position.addScaledVector(vel, 0.035);
+
+      if (Math.random() < 0.5 && this.engine) {
+        this.engine.spawnParticles(beamMesh.position, 2, 0x67e8f9, 1.2, 0.06);
+      }
+
+      if (villagers && villagers.demonKing) {
+        if (villagers.demonKing.position.distanceTo(beamMesh.position) < 2.5) {
+          clearInterval(interval);
+          this.engine.spawnCosmicBurst(beamMesh.position, 25);
+          villagers.damageDemonKing(55, this.engine, audio, this);
+          this.scene.remove(beamMesh);
+          return;
+        }
+      }
+
+      if (villagers && villagers.goblins) {
+        for (let g of villagers.goblins) {
+          if (g.position.distanceTo(beamMesh.position) < 1.8) {
+            clearInterval(interval);
+            this.engine.spawnCosmicBurst(beamMesh.position, 25);
+            villagers.damageGoblin(g, 60, this.engine, audio);
+            this.scene.remove(beamMesh);
+            return;
+          }
+        }
+      }
+
+      if (lifetime > 3.0) {
+        clearInterval(interval);
+        this.scene.remove(beamMesh);
+      }
+    }, 35);
+  }
+
+  // Hero of Hyrule 360 Spin Attack
+  executeLinkSpinAttack(villagers) {
+    this.isAttacking = true;
+    this.attackTimer = 0.55;
+
+    audio.playSpinAttack?.();
+    this.engine.applyScreenShake(0.35);
+
+    this.engine.spawnShockwave(this.position, 6.5, 0x38bdf8);
+    this.engine.spawnParticles(this.position, 35, 0x67e8f9, 6.0, 0.18);
+
+    const spinDamage = 75;
+    const spinRadius = 6.5;
+
+    this.damageCreaturesInArea(villagers, this.position, spinRadius, spinDamage);
+
+    if (villagers && villagers.demonKing) {
+      if (villagers.demonKing.position.distanceTo(this.position) < spinRadius + 2.0) {
+        villagers.damageDemonKing(spinDamage, this.engine, audio, this);
+      }
+    }
+  }
+
   // Secondary Action: Mantis Scythe Slash, Fire Burst, Lightning Arc, or Cosmic Singularity
   executeSecondaryAction(villagers) {
     if (this.isAttacking) return;
+
+    if (this.isLinkMode) {
+      this.executeLinkSpinAttack(villagers);
+      return;
+    }
 
     const element = this.speciesConfig.element;
     const isMantis = this.speciesConfig.hasMantisScythes;
@@ -915,6 +1123,22 @@ export class PlayerEvermean {
   }
 
   takeDamage(amount, source = 'Enemy') {
+    if (this.isLinkMode) {
+      const heartDmg = Math.max(0.5, Math.ceil((amount / 20) * 2) / 2);
+      this.linkHearts = Math.max(0, this.linkHearts - heartDmg);
+      this.barkHp = Math.max(0, this.barkHp - amount);
+      this.engine.spawnParticles(this.position, 15, 0xef4444, 3, 0.15);
+      if (this.linkHearts <= 0) {
+        this.linkHearts = 3;
+        this.barkHp = 50;
+        this.position.set(10, 85.2, 52); // Return to Room of Awakening
+        if (window.showGameNotification) {
+          window.showGameNotification('🧚 A sacred fairy restored your spirit! Returned to the Room of Awakening.');
+        }
+      }
+      return;
+    }
+
     this.barkHp = Math.max(0, this.barkHp - amount);
     this.engine.spawnParticles(this.position, 15, 0x8b4513, 3, 0.15);
     if (this.barkHp <= 0) {
@@ -1460,8 +1684,93 @@ export class PlayerEvermean {
     // Check growth progress
     this.checkEvolution(dayNight.day);
 
-    // 7. Update 3D Model Positions and Camera
     // 7. Update 3D Model Positions, Procedural Kinematics & Camera
+    if (this.isLinkMode) {
+      const isMoving = input.isKeyDown('KeyW') || input.isKeyDown('KeyS') || input.isKeyDown('KeyA') || input.isKeyDown('KeyD');
+      const isSprinting = input.isKeyDown('ShiftLeft') && this.stamina > 5;
+      const walkSpeed = isSprinting ? 9.5 : 5.8;
+      if (isMoving && this.isGrounded) {
+        this.walkCycle = (this.walkCycle || 0) + delta * walkSpeed;
+      }
+
+      if (this.linkModelTP) {
+        this.linkModelTP.position.copy(this.position);
+        this.linkModelTP.position.y -= 1.1; // Place boots on ground
+        this.linkModelTP.rotation.y = this.yaw;
+
+        // Spin attack rotation
+        if (this.isAttacking && this.attackTimer > 0 && this.attackTimer <= 0.55) {
+          this.linkModelTP.rotation.y = this.yaw + (1 - this.attackTimer / 0.55) * Math.PI * 2;
+        }
+
+        const lLeg = this.linkModelTP.userData.leftLeg;
+        const rLeg = this.linkModelTP.userData.rightLeg;
+        if (lLeg && rLeg) {
+          if (isMoving && this.isGrounded) {
+            lLeg.rotation.x = Math.sin(this.walkCycle) * (isSprinting ? 0.75 : 0.45);
+            rLeg.rotation.x = -Math.sin(this.walkCycle) * (isSprinting ? 0.75 : 0.45);
+          } else {
+            lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, 0, delta * 8);
+            rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, 0, delta * 8);
+          }
+        }
+
+        const lArm = this.linkModelTP.userData.leftArm;
+        const rArm = this.linkModelTP.userData.rightArm;
+        if (lArm) {
+          if (isMoving && this.isGrounded) {
+            lArm.rotation.x = -Math.sin(this.walkCycle) * 0.4;
+          } else {
+            lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, 0, delta * 8);
+          }
+        }
+        if (rArm) {
+          if (this.isAttacking) {
+            const swingProgress = (0.42 - this.attackTimer) / 0.42;
+            rArm.rotation.x = -0.4 - Math.sin(swingProgress * Math.PI) * 1.5;
+            rArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.8;
+          } else if (isMoving && this.isGrounded) {
+            rArm.rotation.x = Math.sin(this.walkCycle) * 0.4;
+            rArm.rotation.y = THREE.MathUtils.lerp(rArm.rotation.y, 0, delta * 8);
+          } else {
+            rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, 0, delta * 8);
+            rArm.rotation.y = THREE.MathUtils.lerp(rArm.rotation.y, 0, delta * 8);
+          }
+        }
+
+        if (this.linkModelTP.userData.runeLines) {
+          this.linkModelTP.userData.runeLines.material.emissiveIntensity = 0.8 + Math.sin(Date.now() * 0.005) * 0.3;
+        }
+      }
+
+      if (this.linkModelFP) {
+        const fpArms = this.linkModelFP.userData;
+        const time = Date.now() * 0.006;
+        const bobY = isMoving ? Math.sin(time * 2.2) * (isSprinting ? 0.03 : 0.015) : Math.sin(time * 0.8) * 0.005;
+        const bobX = isMoving ? Math.cos(time * 1.1) * (isSprinting ? 0.02 : 0.01) : 0;
+
+        if (fpArms.leftArm) {
+          fpArms.leftArm.position.x = -0.38 + bobX * 0.4;
+          fpArms.leftArm.position.y = -0.35 + bobY;
+        }
+        if (fpArms.rightArm) {
+          fpArms.rightArm.position.x = 0.38 + bobX * 0.4;
+          fpArms.rightArm.position.y = -0.35 + bobY;
+
+          if (this.isAttacking) {
+            const swingProgress = Math.max(0, Math.min(1, (0.42 - this.attackTimer) / 0.42));
+            fpArms.rightArm.rotation.x = 0.2 + Math.sin(swingProgress * Math.PI) * 1.2;
+            fpArms.rightArm.rotation.y = -Math.sin(swingProgress * Math.PI) * 0.9;
+            fpArms.rightArm.position.z = -0.55 - Math.sin(swingProgress * Math.PI) * 0.25;
+          } else {
+            fpArms.rightArm.rotation.x = THREE.MathUtils.lerp(fpArms.rightArm.rotation.x, 0.2, delta * 10);
+            fpArms.rightArm.rotation.y = THREE.MathUtils.lerp(fpArms.rightArm.rotation.y, 0, delta * 10);
+            fpArms.rightArm.position.z = THREE.MathUtils.lerp(fpArms.rightArm.position.z, -0.55, delta * 10);
+          }
+        }
+      }
+    }
+
     if (this.thirdPersonModel) {
       this.thirdPersonModel.position.copy(this.position);
       const baseFeetY = 1.1 + (this.growthStage - 1) * 0.55;

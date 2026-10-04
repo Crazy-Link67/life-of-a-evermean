@@ -32,6 +32,7 @@ class Game {
     this.isPaused = false;
     this.lastTime = performance.now();
     this.autosaveTimer = 0;
+    this.titleCardShown = false;
   }
 
   start() {
@@ -271,6 +272,12 @@ class Game {
       player.toggleCameraMode();
     });
 
+    // L: Secret Hero of Hyrule / Link Mode Toggle
+    input.onAction('KeyL', () => {
+      if (!this.isGameRunning || this.isPaused) return;
+      player.toggleLinkMode();
+    });
+
     // Escape: Pause / Main Menu / Close Map & Build
     input.onAction('Escape', () => {
       if (!this.isGameRunning) return;
@@ -301,6 +308,18 @@ class Game {
     };
     player.init(engine.scene, engine.camera, terrain, engine, finalConfig.presetKey || 'oak', finalConfig);
     dayNight.setTime(1, 0.3);
+
+    // Tears of the Kingdom Opening: Start high on the Great Sky Island in the Room of Awakening!
+    player.position.set(10, 85.2, 52);
+    player.yaw = Math.PI; // Face south towards the exit portal archway and sky diving board
+    this.titleCardShown = false;
+
+    // Awaken as Link with King Rauru's Right Arm
+    player.toggleLinkMode();
+
+    if (window.showGameNotification) {
+      window.showGameNotification('🗡️ ROOM OF AWAKENING: King Rauru\'s light restores your right arm. Step out through the archway to the Sky Diving Board!');
+    }
 
     this.isGameRunning = true;
     this.isPaused = false;
@@ -401,6 +420,16 @@ class Game {
 
       // 3. Player Controller
       player.update(delta, input, dayNight, environment);
+
+      // Tears of the Kingdom Opening: Stepping onto the Great Sky Island Diving Board triggers the Title Card & Fanfare!
+      if (!this.titleCardShown && player.position.y > 75) {
+        const distToDiving = Math.hypot(player.position.x - 10, player.position.z - 28);
+        if (distToDiving < 5.5) {
+          this.titleCardShown = true;
+          audio.playTotkTitleFanfare?.();
+          hud.showTotkTitleCard();
+        }
+      }
 
       // 4. AI Creatures (Woodcutters, Beavers, Koroks, Deer)
       villagers.update(delta, player, engine, audio, colony);

@@ -133,8 +133,9 @@ export class Environment {
       const x = (Math.random() - 0.5) * (this.terrain.size - 60);
       const z = (Math.random() - 0.5) * (this.terrain.size - 60);
 
-      // Don't spawn inside deep water or on top of camp centers
+      // Don't spawn inside deep water, spawn haven, or on top of camp centers
       if (this.terrain.isWater(x, z)) continue;
+      if (Math.hypot(x, z - 10) < 22) continue; // Woodland spawn haven clearance
       if (Math.hypot(x - this.goblinCampCenter.x, z - this.goblinCampCenter.z) < 24) continue;
       if (Math.hypot(x - this.mountainFortressCenter.x, z - this.mountainFortressCenter.z) < 32) continue;
       if (Math.hypot(x - this.riverMarauderCenter.x, z - this.riverMarauderCenter.z) < 26) continue;
@@ -948,6 +949,7 @@ export class Environment {
     for (let i = 0; i < count; i++) {
       const x = (Math.random() - 0.5) * (this.terrain.size - 60);
       const z = (Math.random() - 0.5) * (this.terrain.size - 60);
+      if (Math.hypot(x, z - 10) < 22) continue;
       const y = this.terrain.getHeight(x, z);
       const isSteppingStone = this.terrain.isWater(x, z);
 
@@ -996,6 +998,7 @@ export class Environment {
       const x = (Math.random() - 0.5) * (this.terrain.size - 60);
       const z = (Math.random() - 0.5) * (this.terrain.size - 60);
       if (this.terrain.isWater(x, z)) continue;
+      if (Math.hypot(x, z - 10) < 22) continue;
 
       const y = this.terrain.getHeight(x, z);
       const len = 3.8 + Math.random() * 3.2;
@@ -1589,6 +1592,100 @@ export class Environment {
       waterfall.position.set(isl.radius * 0.85, -fallHeight * 0.5 + 2, 0);
       waterfall.rotation.y = Math.PI / 2;
       group.add(waterfall);
+
+      // Sacred Room of Awakening & Sky Diving Board on Great Sky Island
+      if (isl.name === 'Great Sylvan Sky Island') {
+        const awakeningGroup = new THREE.Group();
+        awakeningGroup.position.set(0, 2.5, 7); // World: (10, 84.5, 52)
+
+        // Circular stone chamber wall
+        const chamberWall = new THREE.Mesh(
+          new THREE.CylinderGeometry(8.5, 8.5, 5.0, 16, 1, true, Math.PI * 0.25, Math.PI * 1.5),
+          stoneMat
+        );
+        chamberWall.position.y = 2.5;
+        awakeningGroup.add(chamberWall);
+
+        // Stone Ceiling with opening
+        const ceiling = new THREE.Mesh(new THREE.RingGeometry(2.5, 8.5, 16), stoneMat);
+        ceiling.rotation.x = -Math.PI / 2;
+        ceiling.position.y = 5.0;
+        awakeningGroup.add(ceiling);
+
+        // Glowing Turquoise Awakening Pool
+        const poolBorder = new THREE.Mesh(
+          new THREE.TorusGeometry(3.2, 0.35, 8, 24),
+          new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.5 })
+        );
+        poolBorder.rotation.x = Math.PI / 2;
+        poolBorder.position.y = 0.15;
+        awakeningGroup.add(poolBorder);
+
+        const poolWater = new THREE.Mesh(
+          new THREE.CircleGeometry(3.0, 24),
+          new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            emissive: 0x06b6d4,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.85
+          })
+        );
+        poolWater.rotation.x = -Math.PI / 2;
+        poolWater.position.y = 0.18;
+        awakeningGroup.add(poolWater);
+
+        // Central pedestal where Link awakens
+        const pedestal = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.2, 1.4, 0.4, 8),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 })
+        );
+        pedestal.position.y = 0.2;
+        awakeningGroup.add(pedestal);
+
+        // King Rauru glowing Zonai right hand glyph
+        const handGlyph = new THREE.Mesh(
+          new THREE.RingGeometry(0.4, 0.8, 8),
+          new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 1.5 })
+        );
+        handGlyph.rotation.x = -Math.PI / 2;
+        handGlyph.position.y = 0.42;
+        awakeningGroup.add(handGlyph);
+
+        const awakenLight = new THREE.PointLight(0x38bdf8, 3.0, 18);
+        awakenLight.position.set(0, 3.0, 0);
+        awakeningGroup.add(awakenLight);
+
+        // Exit Archway Portal leading forward toward the sky diving board
+        const archL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.5, 0.8), stoneMat);
+        archL.position.set(-2.2, 2.25, -6.5);
+        awakeningGroup.add(archL);
+        const archR = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.5, 0.8), stoneMat);
+        archR.position.set(2.2, 2.25, -6.5);
+        awakeningGroup.add(archR);
+        const archTop = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.8, 0.8), stoneMat);
+        archTop.position.set(0, 4.5, -6.5);
+        awakeningGroup.add(archTop);
+
+        group.add(awakeningGroup);
+
+        // Sky Island Diving Board Ledge projecting into open air
+        const divingLedge = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.6, 10.0), stoneMat);
+        divingLedge.position.set(0, 2.5, -18); // World: (10, 84.5, 27)
+        divingLedge.receiveShadow = true;
+        group.add(divingLedge);
+
+        // Golden Zonai glyph trim at tip of diving board
+        const tipTrim = new THREE.Mesh(
+          new THREE.BoxGeometry(3.7, 0.65, 0.6),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xeab308, emissiveIntensity: 0.8 })
+        );
+        tipTrim.position.set(0, 2.5, -22.8);
+        group.add(tipTrim);
+
+        this.divingBoardPosition = new THREE.Vector3(isl.x, isl.y + 2.8, isl.z - 18);
+      }
+
       group.userData = { waterfall, crystal, name: isl.name, radius: isl.radius, surfaceY: isl.y + 2.5 };
 
       this.scene.add(group);
@@ -1754,6 +1851,56 @@ export class Environment {
       crystal.rotation.z = (Math.random() - 0.5) * 0.4;
       chasmGroup.add(crystal);
     }
+
+    // 4. Demon King Malice Sanctum (y = -90) at (cx + 35, depthsY, cz + 30)
+    const sanctumGroup = new THREE.Group();
+    sanctumGroup.position.set(cx + 35, depthsY, cz + 30);
+
+    const altarPlateau = new THREE.Mesh(
+      new THREE.CylinderGeometry(18, 20, 1.8, 16),
+      new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.9 })
+    );
+    altarPlateau.position.y = 0.9;
+    altarPlateau.receiveShadow = true;
+    sanctumGroup.add(altarPlateau);
+
+    // Crimson Malice Spire Columns surrounding the throne
+    for (let p = 0; p < 8; p++) {
+      const pAngle = (p / 8) * Math.PI * 2;
+      const px = Math.cos(pAngle) * 15;
+      const pz = Math.sin(pAngle) * 15;
+      const spire = new THREE.Mesh(
+        new THREE.ConeGeometry(1.4, 12, 6),
+        new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85 })
+      );
+      spire.position.set(px, 6, pz);
+      spire.castShadow = true;
+      sanctumGroup.add(spire);
+      collision.addCylinder(cx + 35 + px, cz + 30 + pz, 1.5, depthsY, depthsY + 12, 'SanctumSpire_' + p);
+    }
+
+    // Pulsing Gloom Heart Core in center
+    const gloomCoreMat = new THREE.MeshStandardMaterial({
+      color: 0x881337,
+      emissive: 0xe11d48,
+      emissiveIntensity: 1.4,
+      roughness: 0.3
+    });
+    const gloomHeart = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4, 1), gloomCoreMat);
+    gloomHeart.position.y = 4.5;
+    sanctumGroup.add(gloomHeart);
+
+    const sanctumLight = new THREE.PointLight(0xe11d48, 4.5, 50);
+    sanctumLight.position.set(0, 5, 0);
+    sanctumGroup.add(sanctumLight);
+
+    sanctumGroup.userData = {
+      isMaliceSanctum: true,
+      gloomHeart,
+      center: new THREE.Vector3(cx + 35, depthsY, cz + 30)
+    };
+    chasmGroup.add(sanctumGroup);
+    this.maliceSanctum = sanctumGroup;
 
     this.scene.add(chasmGroup);
     this.chasmCavern = chasmGroup;

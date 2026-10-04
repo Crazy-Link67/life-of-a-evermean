@@ -14,6 +14,7 @@ export class ShrineSystem {
     this.goddessStatue = null;
     this.activeDungeon = null;
     this.dungeonChambers = [];
+    this.warpCooldown = 0;
 
     this.initShrines();
     this.initGoddessStatue();
@@ -662,19 +663,24 @@ export class ShrineSystem {
   update(delta, player) {
     if (!player) return;
 
-    // 1. Swirl surface Zonai rings overhead
+    this.warpCooldown = Math.max(0, this.warpCooldown - delta);
+
+    // 1. Swirl surface Zonai rings overhead & walk-in detection
     this.shrines.forEach(shrine => {
       if (shrine.spiralGroup) {
         shrine.spiralGroup.rotation.y += delta * 1.2;
         shrine.spiralGroup.children[0].rotation.z += delta * 0.8;
       }
 
-      // Proximity prompt on surface
+      // Walk-In Shrine Access: walk right into the green archway to enter!
       const dist = shrine.meshGroup.position.distanceTo(player.position);
-      if (dist < 4.2 && !this.activeShrineModal && !this.activeDungeon) {
+      if (dist < 2.5 && !this.activeDungeon && this.warpCooldown <= 0) {
+        this.enterDungeonChamber(shrine, player);
+        return;
+      } else if (dist < 4.8 && !this.activeShrineModal && !this.activeDungeon) {
         if (window.setInteractPrompt) {
-          const status = shrine.completed ? 'Enter Conquered' : 'Enter 3D Trial Chamber of';
-          window.setInteractPrompt(`[E] ${status} ${shrine.name}`);
+          const status = shrine.completed ? 'Walk In / [E] to Enter' : 'Walk In / [E] to Enter 3D Trial:';
+          window.setInteractPrompt(`${status} ${shrine.name}`);
         }
       }
     });
@@ -701,11 +707,14 @@ export class ShrineSystem {
         }
       }
 
-      // Check Exit Warp proximity
+      // Check Exit Warp Pad: step directly on green pad to ascend to surface!
       const exitDist = player.position.distanceTo(d.entranceWorldPos);
-      if (exitDist < 3.2) {
+      if (exitDist < 1.8 && this.warpCooldown <= 0) {
+        this.exitDungeon(player);
+        return;
+      } else if (exitDist < 3.2) {
         if (window.setInteractPrompt) {
-          window.setInteractPrompt(`[E] Ascend Back to Surface of Hyrule`);
+          window.setInteractPrompt(`Step on Pad or [E] to Ascend to Surface of Hyrule`);
         }
       }
 
@@ -901,20 +910,19 @@ export class ShrineSystem {
     if (!dungeon) return;
 
     this.activeDungeon = dungeon;
+    this.warpCooldown = 2.0;
     audio.playShrineChime?.();
     audio.playZonaiBoost?.();
 
-    // Teleport player into the 3D dungeon chamber entrance elevator
-    player.position.copy(dungeon.entranceWorldPos);
-    player.position.y += 0.5;
+    // Teleport player into the 3D dungeon chamber entrance, stepping forward into room
+    player.position.copy(dungeon.entranceWorldPos).add(new THREE.Vector3(0, 0.4, 3.2));
     player.velocity.set(0, 0, 0);
     player.isGrounded = true;
 
-    this.engine.spawnCosmicBurst(player.position, 50);
-    this.engine.applyScreenShake(0.5);
+    this.engine.spawnCosmicBurst(player.position, 45);
 
     if (window.showGameNotification) {
-      window.showGameNotification(`🌀 Descended into 3D Zonai Trial: ${dungeon.cfg.name}!`);
+      window.showGameNotification(`🌀 Stepped into 3D Zonai Trial: ${dungeon.cfg.name}!`);
     }
   }
 
@@ -923,11 +931,12 @@ export class ShrineSystem {
 
     const shrine = this.shrines.find(s => s.id === this.activeDungeon.cfg.shrineId);
     this.activeDungeon = null;
+    this.warpCooldown = 2.0;
 
     audio.playShrineChime?.();
     if (shrine) {
-      player.position.copy(shrine.surfacePos);
-      player.position.y += 0.5;
+      // Safely place player on surface in front of the entrance arch
+      player.position.copy(shrine.surfacePos).add(new THREE.Vector3(0, 0.4, 4.2));
     }
     player.velocity.set(0, 0, 0);
     player.isGrounded = true;

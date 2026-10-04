@@ -2101,7 +2101,9 @@ export class Environment {
     const templeGroup = new THREE.Group();
     templeGroup.position.set(tx, ty, tz);
 
-    const stoneTex = TextureGenerator.createRuinPillarTexture();
+    const stoneTex = (typeof TextureGenerator.createRuinPillarTexture === 'function')
+      ? TextureGenerator.createRuinPillarTexture()
+      : TextureGenerator.createZonaiStoneTexture();
     const templeMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.85 });
     const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
 

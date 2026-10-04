@@ -555,6 +555,71 @@ export class TextureGenerator {
     return texture;
   }
 
+  // Ancient Temple of Time marble and ruin pillar texture with fluting and Zonai gold inlay
+  static createRuinPillarTexture(baseHex = 0xdad3c1) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Ancient off-white limestone / temple marble base
+    const baseCol = new THREE.Color(baseHex);
+    ctx.fillStyle = `rgb(${Math.floor(baseCol.r * 255)}, ${Math.floor(baseCol.g * 255)}, ${Math.floor(baseCol.b * 255)})`;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Stone grain noise
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 32;
+      d[i] = Math.max(0, Math.min(255, d[i] + n));
+      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n * 0.95));
+      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n * 0.85));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Vertical fluted column shadow and highlight channels
+    for (let x = 0; x < 512; x += 32) {
+      const grad = ctx.createLinearGradient(x, 0, x + 32, 0);
+      grad.addColorStop(0, 'rgba(80, 70, 60, 0.28)');
+      grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.22)');
+      grad.addColorStop(1, 'rgba(60, 50, 45, 0.25)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, 0, 32, 512);
+    }
+
+    // Weathered horizontal joints and decorative Zonai golden bands
+    for (let y = 64; y < 512; y += 128) {
+      ctx.strokeStyle = 'rgba(70, 60, 50, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+
+      // Golden frieze trim near joints
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(0, y - 12, 512, 6);
+    }
+
+    // Lichen specks
+    for (let m = 0; m < 60; m++) {
+      const lx = Math.random() * 512;
+      const ly = Math.random() * 512;
+      ctx.fillStyle = Math.random() < 0.5 ? 'rgba(74, 90, 64, 0.3)' : 'rgba(168, 162, 158, 0.35)';
+      ctx.beginPath();
+      ctx.arc(lx, ly, 2 + Math.random() * 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 3);
+    return texture;
+  }
+
   // Weathered goblin hide skin texture with pores, muscle creases, and scars
   static createGoblinSkinTexture(baseHex = 0xc2410c) {
     const canvas = document.createElement('canvas');

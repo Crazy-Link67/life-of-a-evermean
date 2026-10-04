@@ -1,4 +1,4 @@
-const CACHE_NAME = 'evermean-pwa-v4';
+const CACHE_NAME = 'evermean-pwa-v5';
 const BASE = self.location.pathname.replace(/\/[^\/]*$/, '/');
 const STATIC_ASSETS = [
   BASE,
@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Stale-While-Revalidate caching strategy
+// Fetch Event: Network-first for code (JS/HTML), cache-first for static media
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
@@ -39,24 +39,33 @@ self.addEventListener('fetch', (event) => {
   // Skip browser-extension schemes
   if (!url.protocol.startsWith('http')) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
+  const isCode = url.pathname.endsWith('.js') || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+
+  if (isCode) {
+    // Network first for scripts & documents to avoid stale caching
+    event.respondWith(
+      fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If offline and request fails, fall back to cached response
-          return cachedResponse;
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    // Cache first with network fallback for static images/models/sounds
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
         });
-
-      return cachedResponse || fetchPromise;
-    })
-  );
+      })
+    );
+  }
 });
